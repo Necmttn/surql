@@ -1,0 +1,23 @@
+# Deno
+/.deno/
+/.vscode/
+
+# NPM
+node_modules/
+npm/dist/
+
+# Generated files
+/generated/
+examples/generated/
+output.ts
+
+# Test fixtures
+tests/fixtures/
+
+# Executables
+/surql-gen
+/dist/
+
+# OS specific
+.DS_Store
+Thumbs.db 
