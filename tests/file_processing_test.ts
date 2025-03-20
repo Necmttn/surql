@@ -61,12 +61,3 @@ Deno.test("validateReferences handles missing references", () => {
   // Check reference to non-existent table is removed
   assertEquals(validatedTables[1].fields[0].reference, undefined);
 });
-
-// Skip the problematic test for now
-Deno.test.ignore({
-  name: "processFile generates output file",
-  fn() {
-    // This test is skipped because it depends on @clack/prompts which causes memory leaks in tests
-    // The functionality is tested manually
-  }
-}); 

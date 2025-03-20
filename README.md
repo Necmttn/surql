@@ -359,3 +359,60 @@ deno run -A jsr:@necmttn/surql-gen migrate --json-config custom-config.json
 
 This will create a new TypeScript configuration file based on your existing JSON
 configuration.
+
+## Schema Export and Apply
+
+In addition to generating TypeBox schemas, surql-gen also provides functionality
+to export and apply SurrealDB schemas.
+
+### Exporting Schema Definitions
+
+You can export the schema definitions from a database using the `export-schema`
+command:
+
+```bash
+deno run -A mod.ts export-schema --db-url http://localhost:8000 --namespace test --database mydb
+```
+
+By default, this will generate a file called `schema.surql` in the current
+directory, containing all the `DEFINE TABLE` and `DEFINE FIELD` statements from
+the database.
+
+#### Options
+
+- `--db-url`: SurrealDB URL (e.g., http://localhost:8000)
+- `--namespace`: SurrealDB namespace
+- `--database`: SurrealDB database name
+- `--username`: SurrealDB username
+- `--password`: SurrealDB password
+- `--output`: Output file path (default: schema.surql)
+- `--overwrite`: Add OVERWRITE keyword to all definitions (default: false)
+- `--config`: Path to configuration file
+
+### Applying Schema Definitions
+
+You can apply schema definitions to a database using the `apply-schema` command:
+
+```bash
+deno run -A mod.ts apply-schema schema.surql --db-url http://localhost:8000 --namespace test --database mydb
+```
+
+This will execute all the schema definitions in the specified file against the
+target database.
+
+#### Options
+
+- `--db-url`: SurrealDB URL (e.g., http://localhost:8000)
+- `--namespace`: SurrealDB namespace
+- `--database`: SurrealDB database name
+- `--username`: SurrealDB username
+- `--password`: SurrealDB password
+- `--config`: Path to configuration file
+
+### Use Cases
+
+1. **Development Workflow**: Export schema from development environment, apply
+   to production
+2. **Schema Versioning**: Keep schema definitions in version control
+3. **Migration**: Apply schema changes across environments
+4. **Backup**: Export schema-only definitions as a lightweight backup

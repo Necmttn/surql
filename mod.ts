@@ -23,8 +23,18 @@ export {
   processFile,
   processDB,
   initConfig,
-  migrateConfig
+  migrateConfig,
+  exportSchema,
+  applySchema
 } from "./lib/commands.ts";
+
+// Export DB functionality
+export {
+  fetchSchemaFromDB,
+  exportSchemaFromDB,
+  applySchemaToDatabase,
+  checkDBConnection
+} from "./lib/db.ts";
 
 // This is the entry point when the module is run directly
 if (import.meta.main) {
@@ -33,39 +43,49 @@ if (import.meta.main) {
   const { loadConfig, CONFIG_FILENAME_JSON, CONFIG_FILENAME_TS } = await import("./lib/config.ts");
   const { exists } = await import("@std/fs");
 
-  // If no args are provided, look for config files in the current directory
-  if (args.length === 0) {
-    const { log, spinner } = await import("@clack/prompts");
-    const chalk = await import("chalk");
-    const { processDB } = await import("./lib/commands.ts");
+  try {
+    // If no args are provided, look for config files in the current directory
+    if (args.length === 0) {
+      const { log, spinner } = await import("@clack/prompts");
+      const chalk = await import("chalk");
+      const { processDB } = await import("./lib/commands.ts");
 
-    const configSpinner = spinner();
-    configSpinner.start("Checking for configuration files");
+      const configSpinner = spinner();
+      configSpinner.start("Checking for configuration files");
 
-    const hasTypeScriptConfig = await exists(CONFIG_FILENAME_TS);
-    const hasJsonConfig = await exists(CONFIG_FILENAME_JSON);
+      const hasTypeScriptConfig = await exists(CONFIG_FILENAME_TS);
+      const hasJsonConfig = await exists(CONFIG_FILENAME_JSON);
 
-    if (hasTypeScriptConfig || hasJsonConfig) {
-      const config = await loadConfig();
-      const configType = hasTypeScriptConfig ? "TypeScript" : "JSON";
-      configSpinner.message(`Found ${chalk.default.green(configType)} configuration`);
+      if (hasTypeScriptConfig || hasJsonConfig) {
+        const config = await loadConfig();
+        const configType = hasTypeScriptConfig ? "TypeScript" : "JSON";
+        configSpinner.message(`Found ${chalk.default.green(configType)} configuration`);
 
-      if (config.db?.url) {
-        configSpinner.message(`Using database URL: ${chalk.default.cyan(config.db.url)}`);
-        configSpinner.stop(`Running with ${chalk.default.green(configType)} configuration`);
-        await processDB(); // Call processDB with no arguments to use the config values
+        if (config.db?.url) {
+          configSpinner.message(`Using database URL: ${chalk.default.cyan(config.db.url)}`);
+          configSpinner.stop(`Running with ${chalk.default.green(configType)} configuration`);
+          await processDB(); // Call processDB with no arguments to use the config values
+          // processDB will call Deno.exit
+        } else {
+          configSpinner.stop(chalk.default.yellow("Configuration found but missing database URL"));
+          log.error("Config found but no database URL specified.");
+          log.info("Please provide an input file or database URL.");
+          Deno.exit(1);
+        }
       } else {
-        configSpinner.stop(chalk.default.yellow("Configuration found but missing database URL"));
-        log.error("Config found but no database URL specified.");
-        log.info("Please provide an input file or database URL.");
+        configSpinner.stop(chalk.default.red("No configuration files found"));
+        log.info("Run 'deno run -A mod.ts --help' for usage information.");
         Deno.exit(1);
       }
     } else {
-      configSpinner.stop(chalk.default.red("No configuration files found"));
-      log.info("Run 'deno run -A mod.ts --help' for usage information.");
-      Deno.exit(1);
+      await handleCommand(args);
+      // handleCommand will call Deno.exit
     }
-  } else {
-    await handleCommand(args);
+  } catch (error) {
+    console.error("Error in main entry point:", error);
+    Deno.exit(1);
   }
+
+  // Ensure we exit cleanly even if we didn't hit any of the exit calls above
+  Deno.exit(0);
 }

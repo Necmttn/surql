@@ -1,11 +1,11 @@
-import { Type, type Static, type TObject } from "@sinclair/typebox";
+import { Type, type Static } from "@sinclair/typebox";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 
 /**
  * Database connection configuration schema
  */
-export const DbConfigSchema: TObject = Type.Object({
+export const DbConfigSchema = Type.Object({
   url: Type.Optional(Type.String()),
   username: Type.Optional(Type.String()),
   password: Type.Optional(Type.String()),
@@ -18,7 +18,7 @@ export const DbConfigSchema: TObject = Type.Object({
 /**
  * Output file configuration schema
  */
-export const OutputConfigSchema: TObject = Type.Object({
+export const OutputConfigSchema = Type.Object({
   path: Type.String({ default: "./generated" }),
   filename: Type.String({ default: "schema" }),
   extension: Type.Union([
@@ -33,7 +33,7 @@ export const OutputConfigSchema: TObject = Type.Object({
 /**
  * Imports configuration schema
  */
-export const ImportsConfigSchema: TObject = Type.Object({
+export const ImportsConfigSchema = Type.Object({
   style: Type.Union([
     Type.Literal("esm"),
     Type.Literal("commonjs"),
@@ -52,7 +52,7 @@ export const ImportsConfigSchema: TObject = Type.Object({
 /**
  * Schema for surql-gen.json configuration file
  */
-export const ConfigSchema: TObject = Type.Object({
+export const ConfigSchema = Type.Object({
   output: OutputConfigSchema,
   imports: ImportsConfigSchema,
   db: Type.Optional(DbConfigSchema)

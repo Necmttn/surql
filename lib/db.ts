@@ -139,13 +139,17 @@ function parseFieldDefinition(fieldDef: string): {
       kind: 'scalar',
       optional: isOptional
     };
-  } else if (type === 'bool' || type === 'boolean') {
+  }
+
+  if (type === 'bool' || type === 'boolean') {
     return {
       type: 'bool',
       kind: 'scalar',
       optional: isOptional
     };
-  } else if (type === 'datetime') {
+  }
+
+  if (type === 'datetime') {
     return {
       type: 'datetime',
       kind: 'scalar',
@@ -355,8 +359,9 @@ export async function fetchSchemaFromDB(config: Config): Promise<TableDefinition
     if (db) {
       try {
         await db.close();
-      } catch (error) {
-        console.warn("Error closing SurrealDB connection:", error);
+        console.log("Database connection closed");
+      } catch (closeError) {
+        console.warn("Error closing SurrealDB connection:", closeError);
       }
     }
   }
@@ -370,15 +375,24 @@ export async function fetchSchemaFromDB(config: Config): Promise<TableDefinition
  */
 export async function checkDBConnection(url: string): Promise<boolean> {
   try {
-    // Simple health check - try to connect to the SurrealDB endpoint
-    const response = await fetch(url, {
-      method: "HEAD",
-      headers: {
-        "Accept": "application/json",
-      },
-    });
+    // Use a controller to set a timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-    return response.ok;
+    try {
+      // Simple health check - try to connect to the SurrealDB endpoint
+      const response = await fetch(url, {
+        method: "HEAD",
+        headers: {
+          "Accept": "application/json",
+        },
+        signal: controller.signal
+      });
+
+      return response.ok;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
     console.error("Failed to connect to SurrealDB:", error);
     return false;
@@ -391,6 +405,7 @@ export async function checkDBConnection(url: string): Promise<boolean> {
  * 
  * @param dbInfo - Database info from INFO FOR DB response
  * @param tableInfos - Map of table infos from INFO FOR TABLE responses
+ * 
  * @returns Array of parsed table definitions
  */
 export function parseSchemaFromInfoResponses(
@@ -496,4 +511,227 @@ export function parseSchemaFromInfoResponses(
   }
 
   return tables;
+}
+
+/**
+ * Export schema definitions from a database
+ * 
+ * @param config - Configuration with database connection details
+ * @param applyOverwrite - Whether to add OVERWRITE keyword to definitions
+ * @returns Promise that resolves to the schema definitions as a string
+ */
+export async function exportSchemaFromDB(
+  config: Config,
+  applyOverwrite = false
+): Promise<string> {
+  if (!config.db || !config.db.url) {
+    throw new Error("Database URL is required in configuration");
+  }
+
+  console.log("Exporting schema from database:", config.db.url);
+  if (config.db.namespace) {
+    console.log("Using namespace:", config.db.namespace);
+  }
+  if (config.db.database) {
+    console.log("Using database:", config.db.database);
+  }
+
+  let db: Surreal | undefined;
+  try {
+    // Create a new SurrealDB instance
+    db = new Surreal();
+
+    // Connect to the SurrealDB instance
+    await db.connect(config.db.url);
+
+    // Sign in with credentials if provided
+    if (config.db.username && config.db.password) {
+      await db.signin({
+        username: config.db.username,
+        password: config.db.password,
+      });
+    }
+
+    // Use the specified namespace and database if provided
+    if (config.db.namespace && config.db.database) {
+      await db.use({
+        namespace: config.db.namespace,
+        database: config.db.database,
+      });
+    }
+
+    // Fetch schema information using INFO command
+    const infoResult = await db.query("INFO FOR DB;");
+
+    if (!infoResult || !infoResult[0]) {
+      throw new Error("Failed to retrieve schema information from SurrealDB");
+    }
+
+    const schemaInfo = normalizeSchemaInfo(infoResult[0]);
+
+    if (!schemaInfo.tables || Object.keys(schemaInfo.tables).length === 0) {
+      throw new Error("No tables found in schema information");
+    }
+
+    // Process each table to get its schema
+    const schemaLines: string[] = [
+      "-- ------------------------------",
+      "-- SCHEMA DEFINITIONS",
+      "-- ------------------------------",
+      "",
+      "OPTION IMPORT;",
+      ""
+    ];
+
+    // Get all table definitions first
+    for (const tableName of Object.keys(schemaInfo.tables)) {
+      // Skip any table definitions that look like system tables
+      if (tableName.startsWith('_') || tableName.startsWith('sdb_')) {
+        continue;
+      }
+
+      const overwriteKeyword = applyOverwrite ? "OVERWRITE " : "";
+
+      // Fetch table info
+      const tableInfoResult = await db.query(`INFO FOR TABLE ${tableName};`);
+
+      if (tableInfoResult?.[0]) {
+        // Add table definition
+        schemaLines.push("");
+        schemaLines.push("-- ------------------------------");
+        schemaLines.push(`-- TABLE: ${tableName}`);
+        schemaLines.push("-- ------------------------------");
+        schemaLines.push("");
+
+        // Get table type and other options
+        const tableInfo = tableInfoResult[0] as Record<string, unknown>;
+        let tableType = "NORMAL";
+        let schemaMode = "SCHEMAFULL";
+        let permissions = "NONE";
+
+        if (tableInfo.type) {
+          tableType = tableInfo.type as string;
+        }
+        if (tableInfo.schema) {
+          schemaMode = (tableInfo.schema as string).toUpperCase();
+        }
+        if (tableInfo.permissions) {
+          permissions = "FOR select, create, update, delete FULL";
+        }
+
+        schemaLines.push(`DEFINE TABLE ${overwriteKeyword}${tableName} TYPE ${tableType} ${schemaMode} PERMISSIONS ${permissions};`);
+        schemaLines.push("");
+
+        // Get fields
+        if (tableInfo.fields && typeof tableInfo.fields === 'object') {
+          const fields = tableInfo.fields as Record<string, SurrealFieldInfo | string>;
+
+          for (const fieldName of Object.keys(fields)) {
+            const field = fields[fieldName];
+
+            if (typeof field === 'string') {
+              // Simple field definition
+              // Extract just the type information from the field string (the part after 'TYPE')
+              const fieldDefParts = field.split(/\s+TYPE\s+/i);
+              if (fieldDefParts.length > 1) {
+                // Only use the type part to avoid duplication
+                const fieldTypePart = fieldDefParts[1];
+                schemaLines.push(`DEFINE FIELD ${overwriteKeyword}${fieldName} ON ${tableName} TYPE ${fieldTypePart};`);
+              } else {
+                // Fallback if we can't parse it properly
+                schemaLines.push(`DEFINE FIELD ${overwriteKeyword}${fieldName} ON ${tableName} ${field};`);
+              }
+            } else if (typeof field === 'object') {
+              // Complex field definition
+              let fieldDef = `DEFINE FIELD ${overwriteKeyword}${fieldName} ON ${tableName} TYPE ${field.type}`;
+
+              if (field.value !== undefined) {
+                fieldDef += ` VALUE ${field.value}`;
+              }
+
+              if (field.optional) {
+                fieldDef += " OPTIONAL";
+              }
+
+              schemaLines.push(`${fieldDef};`);
+            }
+          }
+        }
+      }
+    }
+
+    return schemaLines.join('\n');
+  } finally {
+    // Close the database connection if open
+    if (db) {
+      try {
+        await db.close();
+        console.log("Database connection closed");
+      } catch (closeError) {
+        console.error("Error closing database connection:", closeError);
+      }
+    }
+  }
+}
+
+/**
+ * Apply schema definitions to a database
+ * 
+ * @param config - Configuration with database connection details
+ * @param schemaDefinitions - The schema definitions to apply
+ */
+export async function applySchemaToDatabase(
+  config: Config,
+  schemaDefinitions: string
+): Promise<void> {
+  if (!config.db || !config.db.url) {
+    throw new Error("Database URL is required in configuration");
+  }
+
+  console.log("Applying schema to database:", config.db.url);
+  if (config.db.namespace) {
+    console.log("Using namespace:", config.db.namespace);
+  }
+  if (config.db.database) {
+    console.log("Using database:", config.db.database);
+  }
+
+  let db: Surreal | undefined;
+  try {
+    // Create a new SurrealDB instance
+    db = new Surreal();
+
+    // Connect to the SurrealDB instance
+    await db.connect(config.db.url);
+
+    // Sign in with credentials if provided
+    if (config.db.username && config.db.password) {
+      await db.signin({
+        username: config.db.username,
+        password: config.db.password,
+      });
+    }
+
+    // Use the specified namespace and database if provided
+    if (config.db.namespace && config.db.database) {
+      await db.use({
+        namespace: config.db.namespace,
+        database: config.db.database,
+      });
+    }
+
+    // Execute the schema definitions
+    await db.query(schemaDefinitions);
+    console.log("Schema definitions applied successfully");
+  } finally {
+    // Close the database connection if open
+    if (db) {
+      try {
+        await db.close();
+        console.log("Database connection closed");
+      } catch (closeError) {
+        console.error("Error closing database connection:", closeError);
+      }
+    }
+  }
 } 

@@ -7,7 +7,7 @@ import chalk from "chalk";
 
 import { loadConfig, getOutputPath, generateImports, CONFIG_FILENAME_JSON, CONFIG_FILENAME_TS, type Config, type DbConfig } from "./config.ts";
 import { parseSurQL, generateTypeBoxSchemas, validateReferences } from "./schema.ts";
-import { fetchSchemaFromDB, checkDBConnection } from "./db.ts";
+import { fetchSchemaFromDB, checkDBConnection, exportSchemaFromDB, applySchemaToDatabase } from "./db.ts";
 
 // Expose the loadConfigFromFile function from config.ts
 import { loadConfigFromFile } from "./config.ts";
@@ -58,9 +58,11 @@ export async function processFile(inputFile: string, outputFile?: string, config
     await Deno.writeTextFile(targetFile, output);
     loadingSpinner.stop(`Generated schemas written to ${chalk.green(targetFile)}`);
 
+    // Explicitly exit with success code
+    await closeResourcesAndExit(0);
   } catch (error) {
     log.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    Deno.exit(1);
+    await closeResourcesAndExit(1);
   }
 }
 
@@ -156,9 +158,11 @@ export async function processDB(dbOptions?: Partial<DbConfig>, outputFile?: stri
     await Deno.writeTextFile(targetFile, output);
     dbSpinner.stop(`Generated schemas from database written to ${chalk.green(targetFile)}`);
 
+    // Explicitly exit with success code
+    await closeResourcesAndExit(0);
   } catch (error) {
     log.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    Deno.exit(1);
+    await closeResourcesAndExit(1);
   }
 }
 
@@ -264,6 +268,198 @@ export default config;
 }
 
 /**
+ * Export schema definitions from a database
+ * 
+ * @param dbOptions - Database connection options from command line
+ * @param outputFile - Path to the output SurrealQL file
+ * @param applyOverwrite - Whether to add OVERWRITE keyword to definitions
+ * @param configPath - Optional path to the configuration file
+ */
+export async function exportSchema(
+  dbOptions?: Partial<DbConfig>,
+  outputFile?: string,
+  applyOverwrite = false,
+  configPath?: string
+): Promise<void> {
+  // Load configuration
+  const config = await loadConfig(configPath);
+
+  // Ensure db config exists
+  config.db = config.db || {};
+
+  // Override config with command line options if provided
+  if (dbOptions) {
+    if (dbOptions.url) {
+      config.db.url = dbOptions.url;
+    }
+    if (dbOptions.username) {
+      config.db.username = dbOptions.username;
+    }
+    if (dbOptions.password) {
+      config.db.password = dbOptions.password;
+    }
+    if (dbOptions.namespace) {
+      config.db.namespace = dbOptions.namespace;
+    }
+    if (dbOptions.database) {
+      config.db.database = dbOptions.database;
+    }
+  }
+
+  if (!config.db?.url) {
+    log.error("Database URL is required either in configuration or via --db-url option");
+    Deno.exit(1);
+  }
+
+  try {
+    const schemaSpinner = spinner();
+    schemaSpinner.start(`Connecting to SurrealDB at ${chalk.cyan(config.db.url)}`);
+
+    // Log additional connection details if provided
+    const connectionDetails = [];
+    if (config.db.namespace) connectionDetails.push(`namespace: ${chalk.cyan(config.db.namespace)}`);
+    if (config.db.database) connectionDetails.push(`database: ${chalk.cyan(config.db.database)}`);
+    if (config.db.username) connectionDetails.push(`user: ${chalk.cyan(config.db.username)}`);
+    if (connectionDetails.length > 0) {
+      schemaSpinner.message(`Connection details: ${connectionDetails.join(', ')}`);
+    }
+
+    // Check database connection
+    const isConnected = await checkDBConnection(config.db.url);
+    if (!isConnected) {
+      schemaSpinner.stop(`Failed to connect to SurrealDB at ${chalk.red(config.db.url)}`);
+      log.error("Database connection failed");
+      Deno.exit(1);
+    }
+
+    // Export schema from database
+    schemaSpinner.message(`Exporting schema${applyOverwrite ? ' with OVERWRITE' : ''}...`);
+    const schemaDefinitions = await exportSchemaFromDB(config, applyOverwrite);
+
+    const defaultOutput = `schema${applyOverwrite ? '.overwrite' : ''}.surql`;
+    const targetFile = outputFile || defaultOutput;
+    schemaSpinner.message(`Writing schema to ${chalk.cyan(targetFile)}`);
+
+    // Ensure output directory exists
+    await ensureDir(dirname(targetFile));
+
+    // Write output file
+    await Deno.writeTextFile(targetFile, schemaDefinitions);
+    schemaSpinner.stop(`Schema written to ${chalk.green(targetFile)}`);
+
+    // Explicitly exit with success code
+    await closeResourcesAndExit(0);
+  } catch (error) {
+    log.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    await closeResourcesAndExit(1);
+  }
+}
+
+/**
+ * Apply schema definitions to a database
+ * 
+ * @param inputFile - Path to the schema definitions file
+ * @param dbOptions - Database connection options
+ * @param configPath - Optional path to the configuration file
+ */
+export async function applySchema(
+  inputFile: string,
+  dbOptions?: Partial<DbConfig>,
+  configPath?: string
+): Promise<void> {
+  // Load configuration
+  const config = await loadConfig(configPath);
+
+  // Ensure db config exists
+  config.db = config.db || {};
+
+  // Override config with command line options if provided
+  if (dbOptions) {
+    if (dbOptions.url) {
+      config.db.url = dbOptions.url;
+    }
+    if (dbOptions.username) {
+      config.db.username = dbOptions.username;
+    }
+    if (dbOptions.password) {
+      config.db.password = dbOptions.password;
+    }
+    if (dbOptions.namespace) {
+      config.db.namespace = dbOptions.namespace;
+    }
+    if (dbOptions.database) {
+      config.db.database = dbOptions.database;
+    }
+  }
+
+  if (!config.db?.url) {
+    log.error("Database URL is required either in configuration or via --db-url option");
+    Deno.exit(1);
+  }
+
+  try {
+    const applySpinner = spinner();
+    applySpinner.start(`Reading schema from ${chalk.cyan(inputFile)}`);
+
+    // Read schema file
+    const schemaDefinitions = await Deno.readTextFile(inputFile);
+
+    applySpinner.message(`Connecting to SurrealDB at ${chalk.cyan(config.db.url)}`);
+
+    // Log additional connection details if provided
+    const connectionDetails = [];
+    if (config.db.namespace) connectionDetails.push(`namespace: ${chalk.cyan(config.db.namespace)}`);
+    if (config.db.database) connectionDetails.push(`database: ${chalk.cyan(config.db.database)}`);
+    if (config.db.username) connectionDetails.push(`user: ${chalk.cyan(config.db.username)}`);
+    if (connectionDetails.length > 0) {
+      applySpinner.message(`Connection details: ${connectionDetails.join(', ')}`);
+    }
+
+    // Check database connection
+    const isConnected = await checkDBConnection(config.db.url);
+    if (!isConnected) {
+      applySpinner.stop(`Failed to connect to SurrealDB at ${chalk.red(config.db.url)}`);
+      log.error("Database connection failed");
+      Deno.exit(1);
+    }
+
+    // Apply schema to database
+    applySpinner.message("Applying schema to database...");
+    await applySchemaToDatabase(config, schemaDefinitions);
+
+    applySpinner.stop(`Schema successfully applied to ${chalk.green(config.db.database || 'database')}`);
+
+    // Explicitly exit with success code
+    await closeResourcesAndExit(0);
+  } catch (error) {
+    log.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    await closeResourcesAndExit(1);
+  }
+}
+
+/**
+ * Close any open resources and exit the process
+ * @param code - Exit code (0 for success, non-zero for error)
+ */
+async function closeResourcesAndExit(code: number): Promise<void> {
+  // Log open resources in debug mode
+  if (Deno.env.get("DEBUG")) {
+    try {
+      // @ts-ignore: Deno.resources() might not be available in all Deno versions
+      console.log("Open resources before exit:", Deno.resources());
+    } catch (e) {
+      console.log("Could not get resources info:", e);
+    }
+  }
+
+  // Give some time for any pending database connections to close
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Exit with the provided code
+  Deno.exit(code);
+}
+
+/**
  * Main CLI handler function
  * 
  * @param args - Command line arguments
@@ -330,6 +526,48 @@ export async function handleCommand(args: string[]): Promise<void> {
       await migrateConfig(options.jsonConfig, options.tsConfig);
     });
 
+  program
+    .command("export-schema")
+    .description("Export schema definitions from a SurrealDB instance")
+    .option("-u, --db-url <db-url>", "SurrealDB URL")
+    .option("-n, --namespace <namespace>", "SurrealDB namespace")
+    .option("-d, --database <database>", "SurrealDB database name")
+    .option("-U, --username <username>", "SurrealDB username")
+    .option("-P, --password <password>", "SurrealDB password")
+    .option("-o, --output <output-file>", "Output SurrealQL file path")
+    .option("--overwrite", "Add OVERWRITE keyword to all definitions", false)
+    .option("-c, --config <config-path>", "Path to configuration file")
+    .action(async (options) => {
+      const dbOptions: Partial<DbConfig> = {
+        url: options.dbUrl,
+        namespace: options.namespace,
+        database: options.database,
+        username: options.username,
+        password: options.password
+      };
+      await exportSchema(dbOptions, options.output, options.overwrite, options.config);
+    });
+
+  program
+    .command("apply-schema <input-file>")
+    .description("Apply schema definitions to a SurrealDB database")
+    .option("-u, --db-url <db-url>", "SurrealDB URL")
+    .option("-n, --namespace <namespace>", "SurrealDB namespace")
+    .option("-d, --database <database>", "SurrealDB database name")
+    .option("-U, --username <username>", "SurrealDB username")
+    .option("-P, --password <password>", "SurrealDB password")
+    .option("-c, --config <config-path>", "Path to configuration file")
+    .action(async (inputFile, options) => {
+      const dbOptions: Partial<DbConfig> = {
+        url: options.dbUrl,
+        namespace: options.namespace,
+        database: options.database,
+        username: options.username,
+        password: options.password
+      };
+      await applySchema(inputFile, dbOptions, options.config);
+    });
+
   // Add examples to help
   program.addHelpText('after', `
 Examples:
@@ -352,8 +590,11 @@ Examples:
     }
 
     await program.parseAsync(["deno", "surql-gen", ...args]);
+    // If we reach here, exit with success
+    await closeResourcesAndExit(0);
   } catch (error) {
     log.error(`Command error: ${error instanceof Error ? error.message : String(error)}`);
     program.help();
+    await closeResourcesAndExit(1);
   }
 } 
