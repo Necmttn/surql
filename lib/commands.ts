@@ -6,7 +6,7 @@ import { intro, log, spinner } from "@clack/prompts";
 import chalk from "chalk";
 
 import { loadConfig, getOutputPath, generateImports, CONFIG_FILENAME_JSON, CONFIG_FILENAME_TS, type Config, type DbConfig } from "./config.ts";
-import { parseSurQL, generateTypeBoxSchemas, validateReferences } from "../mod.ts";
+import { parseSurQL, generateTypeBoxSchemas, validateReferences } from "./schema.ts";
 import { fetchSchemaFromDB, checkDBConnection } from "./db.ts";
 
 // Expose the loadConfigFromFile function from config.ts
@@ -179,7 +179,7 @@ export async function initConfig(configPath?: string, useTypeScript = true): Pro
     // Write configuration file
     if (useTypeScript) {
       const targetPath = configPath || CONFIG_FILENAME_TS;
-      const tsConfig = `import type { Config } from "./lib/config.ts";
+      const tsConfig = `import type { Config } from "@necmttn/surql-gen";
 
 /**
  * surql-gen configuration

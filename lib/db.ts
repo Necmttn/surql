@@ -1,7 +1,7 @@
 // This module will handle connecting to SurrealDB and fetching schema
 
 import type { Config } from "./config.ts";
-import type { TableDefinition } from "../mod.ts";
+import type { TableDefinition } from "./schema.ts";
 // Direct import from surrealdb instead of dynamic import
 import { Surreal } from "surrealdb";
 
