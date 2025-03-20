@@ -188,24 +188,6 @@ export async function initConfig(configPath?: string, useTypeScript = true): Pro
  * for surql-gen configuration options.
  */
 export const config: Config = ${JSON.stringify(config, null, 2)};
-
-// Configuration explanation:
-// - output: Controls where and how the generated files are created
-//   - path: The output directory
-//   - filename: The base filename (without extension)
-//   - extension: The file extension (ts, js, or d.ts)
-//
-// - imports: Controls how imports are generated
-//   - style: The module style (esm, commonjs, or deno)
-//   - paths: Custom import paths for dependencies
-//
-// - db: Database connection settings (optional)
-//   - url: SurrealDB endpoint URL
-//   - username: Username for authentication
-//   - password: Password for authentication
-//   - namespace: Namespace to use
-//   - database: Database to use
-
 export default config;
 `;
       await Deno.writeTextFile(targetPath, tsConfig);
@@ -265,23 +247,6 @@ export async function migrateConfig(jsonConfigPath?: string, tsConfigPath?: stri
  * Migrated from ${jsonPath}
  */
 export const config: Config = ${JSON.stringify(config, null, 2)};
-
-// Configuration explanation:
-// - output: Controls where and how the generated files are created
-//   - path: The output directory
-//   - filename: The base filename (without extension)
-//   - extension: The file extension (ts, js, or d.ts)
-//
-// - imports: Controls how imports are generated
-//   - style: The module style (esm, commonjs, or deno)
-//   - paths: Custom import paths for dependencies
-//
-// - db: Database connection settings (optional)
-//   - url: SurrealDB endpoint URL
-//   - username: Username for authentication
-//   - password: Password for authentication
-//   - namespace: Namespace to use
-//   - database: Database to use
 
 export default config;
 `;
