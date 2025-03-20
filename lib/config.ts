@@ -1,11 +1,11 @@
-import { Type, type Static } from "@sinclair/typebox";
+import { Type, type Static, type TObject } from "@sinclair/typebox";
 import { exists } from "@std/fs";
 import { join } from "@std/path";
 
 /**
  * Database connection configuration schema
  */
-export const DbConfigSchema = Type.Object({
+export const DbConfigSchema: TObject = Type.Object({
   url: Type.Optional(Type.String()),
   username: Type.Optional(Type.String()),
   password: Type.Optional(Type.String()),
@@ -18,7 +18,7 @@ export const DbConfigSchema = Type.Object({
 /**
  * Output file configuration schema
  */
-export const OutputConfigSchema = Type.Object({
+export const OutputConfigSchema: TObject = Type.Object({
   path: Type.String({ default: "./generated" }),
   filename: Type.String({ default: "schema" }),
   extension: Type.Union([
@@ -33,7 +33,7 @@ export const OutputConfigSchema = Type.Object({
 /**
  * Imports configuration schema
  */
-export const ImportsConfigSchema = Type.Object({
+export const ImportsConfigSchema: TObject = Type.Object({
   style: Type.Union([
     Type.Literal("esm"),
     Type.Literal("commonjs"),
@@ -52,7 +52,7 @@ export const ImportsConfigSchema = Type.Object({
 /**
  * Schema for surql-gen.json configuration file
  */
-export const ConfigSchema = Type.Object({
+export const ConfigSchema: TObject = Type.Object({
   output: OutputConfigSchema,
   imports: ImportsConfigSchema,
   db: Type.Optional(DbConfigSchema)
@@ -150,9 +150,30 @@ export async function loadConfigFromFile(configPath: string): Promise<Config> {
  */
 async function loadTypeScriptConfig(configPath: string): Promise<Config> {
   try {
-    const module = await import(`file://${Deno.cwd()}/${configPath}`);
-    const config = module.default || module.config;
-    return { ...DEFAULT_CONFIG, ...config } as Config;
+    let moduleConfig: Record<string, unknown> | null = null;
+
+    try {
+      // First try importing from absolute path
+      const absolutePath = `file://${Deno.cwd()}/${configPath}`;
+      const module = await import(absolutePath);
+      moduleConfig = module.default || module.config;
+    } catch (importError) {
+      try {
+        // If that fails, try importing relative to the current directory
+        const module = await import(`./${configPath}`);
+        moduleConfig = module.default || module.config;
+      } catch (relativeImportError) {
+        // If both attempts fail, try importing directly (for JSR usage)
+        const module = await import(configPath);
+        moduleConfig = module.default || module.config;
+      }
+    }
+
+    if (!moduleConfig) {
+      throw new Error(`Could not load config from ${configPath}`);
+    }
+
+    return { ...DEFAULT_CONFIG, ...moduleConfig } as Config;
   } catch (error) {
     console.error(`Error loading TypeScript config from ${configPath}: ${error instanceof Error ? error.message : String(error)}`);
     return DEFAULT_CONFIG as Config;
