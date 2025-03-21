@@ -569,6 +569,14 @@ export async function exportSchemaFromDB(
     console.log("Using database:", config.db.database);
   }
 
+  // Helper function to ensure definition ends with semicolon
+  const ensureSemicolon = (definition: string): string => {
+    // Trim trailing whitespace
+    const trimmed = definition.trim();
+    // Add semicolon if it doesn't already end with one
+    return trimmed.endsWith(';') ? trimmed : `${trimmed};`;
+  };
+
   let db: Surreal | undefined;
   try {
     // Create a new SurrealDB instance
@@ -645,9 +653,9 @@ export async function exportSchemaFromDB(
                 /DEFINE\s+(FUNCTION|CONFIG|ANALYZER|API|MODEL|PARAM)/i,
                 'DEFINE $1 OVERWRITE'
               );
-              schemaLines.push(modifiedDef);
+              schemaLines.push(ensureSemicolon(modifiedDef));
             } else {
-              schemaLines.push(definition);
+              schemaLines.push(ensureSemicolon(definition));
             }
             schemaLines.push("");
           }
@@ -685,9 +693,9 @@ export async function exportSchemaFromDB(
         // Only modify the definition if OVERWRITE is needed
         if (applyOverwrite) {
           // Add OVERWRITE keyword after DEFINE TABLE
-          schemaLines.push(rawTableDef.replace('DEFINE TABLE', 'DEFINE TABLE OVERWRITE'));
+          schemaLines.push(ensureSemicolon(rawTableDef.replace('DEFINE TABLE', 'DEFINE TABLE OVERWRITE')));
         } else {
-          schemaLines.push(rawTableDef);
+          schemaLines.push(ensureSemicolon(rawTableDef));
         }
 
         schemaLines.push("");
@@ -707,9 +715,9 @@ export async function exportSchemaFromDB(
                 // Raw field definition as string
                 if (applyOverwrite) {
                   // Add OVERWRITE keyword after DEFINE FIELD
-                  schemaLines.push(field.replace('DEFINE FIELD', 'DEFINE FIELD OVERWRITE'));
+                  schemaLines.push(ensureSemicolon(field.replace('DEFINE FIELD', 'DEFINE FIELD OVERWRITE')));
                 } else {
-                  schemaLines.push(field);
+                  schemaLines.push(ensureSemicolon(field));
                 }
               } else if (typeof field === 'object') {
                 // Handle complex field object (fallback in case the raw string isn't available)
@@ -724,7 +732,7 @@ export async function exportSchemaFromDB(
                   fieldDef += " OPTIONAL";
                 }
 
-                schemaLines.push(`${fieldDef};`);
+                schemaLines.push(ensureSemicolon(fieldDef));
               }
             }
           }
@@ -750,9 +758,9 @@ export async function exportSchemaFromDB(
               for (const [objectName, objectDef] of Object.entries(objectMap)) {
                 if (applyOverwrite) {
                   // Add OVERWRITE keyword after DEFINE <TYPE>
-                  schemaLines.push(objectDef.replace(`DEFINE ${defineType}`, `DEFINE ${defineType} OVERWRITE`));
+                  schemaLines.push(ensureSemicolon(objectDef.replace(`DEFINE ${defineType}`, `DEFINE ${defineType} OVERWRITE`)));
                 } else {
-                  schemaLines.push(objectDef);
+                  schemaLines.push(ensureSemicolon(objectDef));
                 }
               }
             }

@@ -1,6 +1,6 @@
 {
   "name": "@necmttn/surql-gen",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "SurrealDB schema generator for TypeBox",
   "exports": "./mod.ts",
   "tasks": {

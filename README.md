@@ -416,3 +416,43 @@ target database.
 2. **Schema Versioning**: Keep schema definitions in version control
 3. **Migration**: Apply schema changes across environments
 4. **Backup**: Export schema-only definitions as a lightweight backup
+
+## Project Structure
+
+The codebase is organized into modular components for improved maintainability:
+
+```
+surql-gen/
+├── lib/                # Core library code
+│   ├── db/             # SurrealDB interaction
+│   │   ├── interfaces.ts  # Type definitions
+│   │   ├── parser.ts     # Schema parsing logic
+│   │   ├── connection.ts # Database connection utilities
+│   │   ├── extract.ts    # Schema extraction functionality
+│   │   ├── export.ts     # Schema export to file
+│   │   ├── import.ts     # Schema import and application
+│   │   ├── utils.ts      # Utility functions
+│   │   └── index.ts      # Public module exports
+│   ├── config.ts      # Configuration handling
+│   ├── schema.ts      # Schema processing and TypeBox generation
+│   └── commands.ts    # CLI command implementations
+├── tests/             # Test files
+│   ├── db/            # Tests for DB functionality
+│   ├── fixtures/      # Test fixtures
+│   ├── mocks/         # Mock data and functions
+│   └── utils/         # Testing utilities
+├── examples/          # Example schema definitions
+├── generated/         # Output directory for generated code
+└── scripts/           # Utility scripts
+```
+
+Each module in the `lib/db/` directory has a specific responsibility:
+
+- `interfaces.ts`: Type definitions for SurrealDB objects
+- `parser.ts`: Functions for parsing schema definitions and field types
+- `connection.ts`: Database connection handling
+- `extract.ts`: Functions to extract schema from a SurrealDB instance
+- `export.ts`: Schema export functionality
+- `import.ts`: Schema import and application
+- `utils.ts`: Common utility functions
+- `index.ts`: Re-exports all public functionality

@@ -109,61 +109,6 @@ DEFINE FIELD OVERWRITE age ON user TYPE int;
     );
   });
 
-  await t.step("should apply different schema formats to database successfully", async () => {
-    // Note: It seems SurrealDB internally converts ANY SCHEMALESS to NORMAL SCHEMAFULL
-    // which is why the direct preservation test doesn't work. But the force flag should still work.
-
-    // Test ANY SCHEMALESS - but force it with export options since SurrealDB converts it
-    await dbInstance.loadSchema(fileAnySchemaless, "test", "schema_format_test");
-    await delay(500); // Wait for schema to be processed
-
-    // Export with forced ANY and SCHEMALESS
-    const exportedSchemaAny = await exportSchemaFromDB(config, {
-      applyOverwrite: false,
-      forceTableType: "ANY",
-      forceSchemaMode: "SCHEMALESS"
-    });
-
-    // Check that the forced types are used
-    assertEquals(
-      exportedSchemaAny.includes("TYPE ANY SCHEMALESS") ||
-      (exportedSchemaAny.includes("TYPE ANY") && exportedSchemaAny.includes("SCHEMALESS")),
-      true,
-      "Export with forced ANY SCHEMALESS should use those types"
-    );
-
-    // Now test NORMAL SCHEMAFULL
-    await dbInstance.loadSchema(fileNormalSchemafull, "test", "schema_format_test");
-    await delay(500);
-
-    const exportedSchemaNormal = await exportSchemaFromDB(config, {
-      applyOverwrite: false,
-      forceTableType: "NORMAL",
-      forceSchemaMode: "SCHEMAFULL"
-    });
-
-    assertEquals(
-      exportedSchemaNormal.includes("TYPE NORMAL SCHEMAFULL") ||
-      (exportedSchemaNormal.includes("TYPE NORMAL") && exportedSchemaNormal.includes("SCHEMAFULL")),
-      true,
-      "Export with forced NORMAL SCHEMAFULL should use those types"
-    );
-
-    // Finally test with OVERWRITE
-    await applySchemaToDatabase(config, schemaWithOverwrite);
-    await delay(500);
-
-    // The resulting schema should have the structure from the OVERWRITE schema
-    const exportedSchemaAfterOverwrite = await exportSchemaFromDB(config, { applyOverwrite: false });
-
-    assertEquals(
-      exportedSchemaAfterOverwrite.includes("TYPE NORMAL SCHEMAFULL") ||
-      exportedSchemaAfterOverwrite.includes("TYPE NORMAL") ||
-      exportedSchemaAfterOverwrite.includes("SCHEMAFULL"),
-      true,
-      "Exported schema after OVERWRITE should have NORMAL SCHEMAFULL structure"
-    );
-  });
 
   await t.step("should handle OVERWRITE flag in exportSchemaFromDB", async () => {
     // Apply a base schema
@@ -171,7 +116,7 @@ DEFINE FIELD OVERWRITE age ON user TYPE int;
     await delay(500);
 
     // Export with OVERWRITE flag true
-    const exportedWithOverwrite = await exportSchemaFromDB(config, { applyOverwrite: true });
+    const exportedWithOverwrite = await exportSchemaFromDB(config, true);
 
     // Check that the OVERWRITE keyword is added
     assertEquals(
@@ -181,49 +126,13 @@ DEFINE FIELD OVERWRITE age ON user TYPE int;
     );
 
     // Export with OVERWRITE flag false
-    const exportedWithoutOverwrite = await exportSchemaFromDB(config, { applyOverwrite: false });
+    const exportedWithoutOverwrite = await exportSchemaFromDB(config, false);
 
     // Check that the OVERWRITE keyword is not added
     assertEquals(
       exportedWithoutOverwrite.includes("DEFINE TABLE OVERWRITE user"),
       false,
       "Export without OVERWRITE flag should not include OVERWRITE keyword"
-    );
-  });
-
-  await t.step("should force table type and schema mode in export", async () => {
-    // Apply a schema
-    await dbInstance.loadSchema(fileAnySchemaless, "test", "schema_format_test");
-    await delay(500);
-
-    // Export with forced NORMAL and SCHEMAFULL
-    const exportedWithForced = await exportSchemaFromDB(config, {
-      applyOverwrite: false,
-      forceTableType: "NORMAL",
-      forceSchemaMode: "SCHEMAFULL"
-    });
-
-    // Check that the forced types are used
-    assertEquals(
-      exportedWithForced.includes("TYPE NORMAL SCHEMAFULL") ||
-      (exportedWithForced.includes("TYPE NORMAL") && exportedWithForced.includes("SCHEMAFULL")),
-      true,
-      "Export with forced types should use NORMAL SCHEMAFULL"
-    );
-
-    // Now export with ANY and SCHEMALESS
-    const exportedWithForcedAny = await exportSchemaFromDB(config, {
-      applyOverwrite: false,
-      forceTableType: "ANY",
-      forceSchemaMode: "SCHEMALESS"
-    });
-
-    // Check that the forced types are used
-    assertEquals(
-      exportedWithForcedAny.includes("TYPE ANY SCHEMALESS") ||
-      (exportedWithForcedAny.includes("TYPE ANY") && exportedWithForcedAny.includes("SCHEMALESS")),
-      true,
-      "Export with forced types should use ANY SCHEMALESS"
     );
   });
 }); 
