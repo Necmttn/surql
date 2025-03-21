@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { formatSchemaName, formatTypeName, parseSurQL, generateTypeBoxSchemas, parseType } from "./mod.ts";
+import { formatSchemaName, formatTypeName, parseSurQL, generateTypeBoxSchemas, parseType } from "../mod.ts";
 
 // Test for formatSchemaName
 Deno.test("formatSchemaName formats table names correctly", () => {

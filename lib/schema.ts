@@ -213,7 +213,7 @@ const RecordIdType = <T extends string>(_table: T) => Type.Unsafe<RecordId<T>>()
           typeBoxType = "Type.Boolean()";
           break;
         case "datetime":
-          typeBoxType = "Type.String({ format: 'date-time' })";
+          typeBoxType = "Type.Date()";
           break;
         case "array":
           typeBoxType = "Type.Array(Type.String())";
