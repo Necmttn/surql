@@ -7,7 +7,7 @@ import chalk from "chalk";
 
 import { loadConfig, getOutputPath, generateImports, CONFIG_FILENAME_JSON, CONFIG_FILENAME_TS, type Config, type DbConfig } from "./config.ts";
 import { parseSurQL, generateTypeBoxSchemas, validateReferences } from "./schema.ts";
-import { generateEffectSchemas } from "./effect-schema.ts";
+import { generateEffectSchemas } from "./effect-schema-class.ts";
 import { fetchSchemaFromDB, checkDBConnection, exportSchemaFromDB, applySchemaToDatabase } from "./db.ts";
 
 // Expose the loadConfigFromFile function from config.ts
