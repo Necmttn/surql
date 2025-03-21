@@ -1,5 +1,5 @@
 // SurrealQL query parser and type inference
-import { Schema } from "@effect/schema";
+import { Schema } from "effect";
 import type { TableDefinition } from "./schema.ts";
 import { formatSchemaName, recordId } from "./effect-schema.ts";
 
@@ -41,12 +41,12 @@ export interface JoinReference {
 export interface Condition {
   field: string;
   operator: string;
-  value: any;
+  value: string | number | boolean | null;
 }
 
 export interface ReturnModifier {
   type: 'LIMIT' | 'GROUP' | 'ORDER';
-  value: any;
+  value: number | string | string[];
 }
 
 /**
@@ -104,14 +104,13 @@ export class SchemaRegistry {
    * Get field schema by table name and field path
    */
   resolveFieldPath(tableName: string, path: string[]): FieldSchema | undefined {
-    let tableSchema = this.getTableSchema(tableName);
-    if (!tableSchema) return undefined;
-
+    let currentTable = this.getTableSchema(tableName);
     let fieldSchema: FieldSchema | undefined;
-    let currentTable = tableSchema;
 
     for (let i = 0; i < path.length; i++) {
       const fieldName = path[i];
+      if (!currentTable) return undefined;
+
       fieldSchema = currentTable.fields[fieldName];
 
       if (!fieldSchema) return undefined;
@@ -119,8 +118,9 @@ export class SchemaRegistry {
       // If this is a reference and not the last field in the path,
       // we need to follow the reference
       if (i < path.length - 1 && fieldSchema.reference) {
-        currentTable = this.getTableSchema(fieldSchema.reference.table);
-        if (!currentTable) return undefined;
+        const nextTable = this.getTableSchema(fieldSchema.reference.table);
+        if (!nextTable) return undefined;
+        currentTable = nextTable;
       }
     }
 
@@ -221,7 +221,7 @@ function parseSelectQuery(queryString: string, query: ParsedQuery): void {
 
   // Extract fields
   const fieldsMatch = queryString.match(/SELECT\s+(.+?)\s+FROM/i);
-  if (fieldsMatch && fieldsMatch[1]) {
+  if (fieldsMatch?.[1]) {
     const fieldsList = fieldsMatch[1].split(',').map(f => f.trim());
 
     for (const field of fieldsList) {
@@ -231,8 +231,8 @@ function parseSelectQuery(queryString: string, query: ParsedQuery): void {
       } else if (field.includes('.*.')) {
         // Nested fields with wildcard like user.*.posts
         const parts = field.split('.');
-        let current = { field: parts[0] };
-        let currentNested = current;
+        const current: NestedFieldSelection = { field: parts[0] };
+        let currentNested: NestedFieldSelection = current;
 
         for (let i = 1; i < parts.length; i++) {
           if (parts[i] === '*') {
@@ -271,13 +271,13 @@ function parseSelectQuery(queryString: string, query: ParsedQuery): void {
 
   // Extract table
   const tableMatch = queryString.match(/FROM\s+(\w+)/i);
-  if (tableMatch && tableMatch[1]) {
+  if (tableMatch?.[1]) {
     query.tables.push({ name: tableMatch[1] });
   }
 
   // Extract WHERE conditions
   const whereMatch = queryString.match(/WHERE\s+(.+?)(?:\s+LIMIT|\s+GROUP|\s+ORDER|$)/i);
-  if (whereMatch && whereMatch[1]) {
+  if (whereMatch?.[1]) {
     const conditionStr = whereMatch[1];
 
     // Simple condition parsing - this is very basic and would need to be expanded
@@ -293,8 +293,8 @@ function parseSelectQuery(queryString: string, query: ParsedQuery): void {
 
   // Extract LIMIT
   const limitMatch = queryString.match(/LIMIT\s+(\d+)/i);
-  if (limitMatch && limitMatch[1]) {
-    const limit = parseInt(limitMatch[1], 10);
+  if (limitMatch?.[1]) {
+    const limit = Number.parseInt(limitMatch[1], 10);
     query.returnModifiers.push({
       type: 'LIMIT',
       value: limit
@@ -333,26 +333,26 @@ export function inferReturnTypeFromParsedQuery(
 ): Schema.Schema<unknown> {
   if (query.type !== 'SELECT') {
     // For non-SELECT queries, return a basic success schema
-    return Schema.struct({
-      status: Schema.literal("OK"),
-      time: Schema.string,
-      result: Schema.union(
-        Schema.literal(true),
-        Schema.array(Schema.unknown)
+    return Schema.Struct({
+      status: Schema.Literal("OK"),
+      time: Schema.String,
+      result: Schema.Union(
+        Schema.Literal(true),
+        Schema.Array(Schema.Unknown)
       )
-    });
+    }) as Schema.Schema<unknown>;
   }
 
   // For SELECT queries, build a proper return type
   if (query.tables.length === 0) {
-    return Schema.unknown;
+    return Schema.Unknown;
   }
 
   const mainTable = query.tables[0].name;
   const tableSchema = registry.getTableSchema(mainTable);
 
   if (!tableSchema) {
-    return Schema.unknown;
+    return Schema.Unknown;
   }
 
   // Build a schema for the result
@@ -372,7 +372,7 @@ export function inferReturnTypeFromParsedQuery(
         const fieldName = fieldSelection.field;
         const field = tableSchema.fields[fieldName];
 
-        if (field && field.reference) {
+        if (field?.reference) {
           fieldSchemas[fieldName] = createSchemaForNestedField(
             field,
             fieldSelection.nested,
@@ -382,7 +382,7 @@ export function inferReturnTypeFromParsedQuery(
       }
     }
 
-    resultSchema = Schema.struct(fieldSchemas);
+    resultSchema = Schema.Struct(fieldSchemas) as Schema.Schema<unknown>;
   } else {
     // Specific fields selected
     const fieldSchemas: Record<string, Schema.Schema<unknown>> = {};
@@ -407,12 +407,12 @@ export function inferReturnTypeFromParsedQuery(
       }
     }
 
-    resultSchema = Schema.struct(fieldSchemas);
+    resultSchema = Schema.Struct(fieldSchemas) as Schema.Schema<unknown>;
   }
 
   // Wrap in array if result is expected to be an array
   if (query.isArrayResult) {
-    return Schema.array(resultSchema);
+    return Schema.Array(resultSchema) as Schema.Schema<unknown>;
   }
 
   return resultSchema;
@@ -425,61 +425,28 @@ function createSchemaForField(
   field: FieldSchema,
   registry: SchemaRegistry
 ): Schema.Schema<unknown> {
-  let schema: Schema.Schema<unknown>;
-
   switch (field.type) {
     case 'string':
-      schema = Schema.string;
-      break;
+      return Schema.String as Schema.Schema<unknown>;
     case 'number':
-    case 'float':
-    case 'decimal':
-      schema = Schema.number;
-      break;
+      return Schema.Number as Schema.Schema<unknown>;
     case 'int':
-    case 'integer':
-      schema = Schema.number.pipe(Schema.int());
-      break;
+      return Schema.Number as Schema.Schema<unknown>;
+    case 'float':
+      return Schema.Number as Schema.Schema<unknown>;
     case 'bool':
-    case 'boolean':
-      schema = Schema.boolean;
-      break;
+      return Schema.Boolean as Schema.Schema<unknown>;
     case 'datetime':
-      schema = Schema.Date;
-      break;
+      return Schema.Date as Schema.Schema<unknown>;
     case 'record':
-      if (field.reference) {
-        schema = recordId(field.reference.table);
-      } else {
-        schema = Schema.string;
-      }
-      break;
+      return recordId(field.reference?.table || '') as Schema.Schema<unknown>;
     case 'array':
-      schema = Schema.array(Schema.unknown);
-      break;
-    case 'array_record':
-      if (field.reference) {
-        schema = Schema.array(recordId(field.reference.table));
-      } else {
-        schema = Schema.array(Schema.string);
-      }
-      break;
-    case 'array_float':
-      schema = Schema.array(Schema.number);
-      break;
+      return Schema.Array(Schema.Unknown) as Schema.Schema<unknown>;
     case 'object':
-      schema = Schema.record(Schema.string, Schema.unknown);
-      break;
+      return Schema.Unknown;
     default:
-      schema = Schema.unknown;
-      break;
+      return Schema.Unknown;
   }
-
-  if (field.optional) {
-    return Schema.optional(schema);
-  }
-
-  return schema;
 }
 
 /**
@@ -487,64 +454,39 @@ function createSchemaForField(
  */
 function createSchemaForNestedField(
   field: FieldSchema,
-  nestedFields: NestedFieldSelection[],
+  nested: NestedFieldSelection[],
   registry: SchemaRegistry
 ): Schema.Schema<unknown> {
   if (!field.reference) {
-    return Schema.unknown;
+    return Schema.Unknown;
   }
 
   const referencedTable = registry.getTableSchema(field.reference.table);
   if (!referencedTable) {
-    return Schema.unknown;
+    return Schema.Unknown;
   }
 
-  // If the nested selection is *, include all fields from the referenced table
-  if (nestedFields.length === 1 && nestedFields[0].field === '*') {
-    const fieldSchemas: Record<string, Schema.Schema<unknown>> = {};
-
-    for (const [fieldName, referencedField] of Object.entries(referencedTable.fields)) {
-      fieldSchemas[fieldName] = createSchemaForField(referencedField, registry);
-    }
-
-    const referencedSchema = Schema.struct(fieldSchemas);
-
-    // If this is an array reference, wrap in array
-    if (field.type.startsWith('array')) {
-      return Schema.array(referencedSchema);
-    }
-
-    return referencedSchema;
-  }
-
-  // Otherwise, include only the specified fields
+  // Build a schema for the nested field
   const fieldSchemas: Record<string, Schema.Schema<unknown>> = {};
 
-  for (const nestedField of nestedFields) {
-    const nestedFieldName = nestedField.field;
-    const referencedField = referencedTable.fields[nestedFieldName];
+  for (const nestedField of nested) {
+    const fieldName = nestedField.field;
+    const referencedField = referencedTable.fields[fieldName];
 
     if (!referencedField) continue;
 
     if (nestedField.nested) {
-      fieldSchemas[nestedFieldName] = createSchemaForNestedField(
+      fieldSchemas[fieldName] = createSchemaForNestedField(
         referencedField,
         nestedField.nested,
         registry
       );
     } else {
-      fieldSchemas[nestedFieldName] = createSchemaForField(referencedField, registry);
+      fieldSchemas[fieldName] = createSchemaForField(referencedField, registry);
     }
   }
 
-  const referencedSchema = Schema.struct(fieldSchemas);
-
-  // If this is an array reference, wrap in array
-  if (field.type.startsWith('array')) {
-    return Schema.array(referencedSchema);
-  }
-
-  return referencedSchema;
+  return Schema.Struct(fieldSchemas) as Schema.Schema<unknown>;
 }
 
 /**

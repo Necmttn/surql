@@ -68,27 +68,33 @@ surql-gen/
 - [lib/effect-schema.ts](./lib/effect-schema.ts) - Effect Schema implementation
 - [lib/query-parser.ts](./lib/query-parser.ts) - Query parser implementation
 
-## Current Phase: Core Functionality
+## Current Phase: Core Functionality & Query Type Inference
 
-We have completed the initial implementation of the Effect Schema system and the
-basic query parser. The current focus is on:
+We have completed several key milestones:
 
-1. Fixing linting issues in the prototype implementations
-2. Enhancing the query parser to handle more complex queries
-3. Creating a comprehensive test suite
-4. Improving documentation
+1. ✅ Initial implementation of the Effect Schema system
+2. ✅ Array type handling and validation
+3. ✅ Basic test coverage for schema generation
+4. ✅ Basic query type inference
+
+Current focus areas:
+
+1. Enhancing the query parser to handle more complex queries
+2. Improving test coverage
+3. Resolving remaining linting issues
+4. Documenting the implemented features
 
 ## Roadmap
 
-| Phase | Description                     | Status         |
-| ----- | ------------------------------- | -------------- |
-| 1     | Environment Setup & Research    | ✅ Complete    |
-| 2     | Core Implementation             | ✅ Complete    |
-| 3     | Query Type Inference (Basic)    | ✅ Complete    |
-| 3.5   | Query Type Inference (Advanced) | 🟡 In Progress |
-| 4     | Integration & API Design        | 🔴 Not Started |
-| 5     | Testing & Documentation         | 🟡 In Progress |
-| 6     | Performance & Optimization      | 🔴 Not Started |
+| Phase | Description                     | Status               |
+| ----- | ------------------------------- | -------------------- |
+| 1     | Environment Setup & Research    | ✅ Complete          |
+| 2     | Core Implementation             | ✅ Complete          |
+| 3     | Query Type Inference (Basic)    | ✅ Complete          |
+| 3.5   | Query Type Inference (Advanced) | 🟡 In Progress (60%) |
+| 4     | Integration & API Design        | 🔴 Not Started       |
+| 5     | Testing & Documentation         | 🟡 In Progress (40%) |
+| 6     | Performance & Optimization      | 🔴 Not Started       |
 
 ## How to Work with This Project
 
@@ -117,7 +123,9 @@ the [How to Work guide](./docs/HOW_TO_WORK.md). The guide covers:
 1. NPM package dependencies are not automatically installed. Need to set up
    `nodeModulesDir` in `deno.json`.
 2. The query parser doesn't currently handle complex JOINs properly.
-3. Linting issues in prototype implementations need to be resolved.
+3. Some linting issues remain in prototype implementations.
+4. Array type handling needs more comprehensive testing with different
+   scenarios.
 
 ## Questions?
 

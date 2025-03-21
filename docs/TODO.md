@@ -3,7 +3,8 @@
 ## Current Priorities
 
 1. **Fix linting issues in prototype implementations**
-   - [ ] Resolve linting issues in `lib/effect-schema.ts`
+   - [x] Fix array type handling in `lib/effect-schema.ts`
+   - [ ] Resolve remaining linting issues in `lib/effect-schema.ts`
    - [ ] Resolve linting issues in `lib/query-parser.ts`
    - [ ] Fix issue with npm packages not being found (Need to set up
          nodeModulesDir in deno.json)
@@ -15,17 +16,20 @@
    - [ ] Add more advanced query parsing and validation utilities
 
 3. **Complete query type inference system**
+   - [x] Basic type inference for simple queries
    - [ ] Add support for complex JOINs and relationships
    - [ ] Improve handling of nested field selections
    - [ ] Support for filtering based on WHERE clauses
 
 4. **Create integration tests**
-   - [ ] Write tests for Effect Schema generation
+   - [x] Write basic tests for Effect Schema generation
+   - [x] Add tests for array type handling
    - [ ] Write tests for query parsing and type inference
    - [ ] Ensure backward compatibility with TypeBox
    - [ ] Add test for output path validation
 
 5. **Improve documentation**
+   - [x] Document array type handling in Effect Schema
    - [ ] Add migration guide from TypeBox to Effect Schema
    - [ ] Document query type inference capabilities
    - [ ] Create comprehensive API reference
@@ -58,7 +62,22 @@
   - [ ] Create a command option to control whether existing files should be
         overwritten
 
-## Performance & Optimization
+## Future Enhancements (Lower Priority)
+
+- [ ] Add support for field constraints and validations
+  - [ ] Implement min/max length for strings
+  - [ ] Add numeric range constraints
+  - [ ] Support custom validation patterns
+- [ ] Integration with GraphQL-like query builders
+- [ ] Schema evolution and migration support
+- [ ] IDE plugins for SurrealQL query validation and autocompletion
+- [ ] Add automatic type detection improvements
+- [ ] Add more complex examples
+- [ ] Test against .surql files
+- [ ] Test against SurrealDB running in Docker
+- [ ] Package for npm release
+
+## Performance & Optimization (Lower Priority)
 
 - [ ] Benchmark TypeBox vs Effect Schema implementations
   - [ ] Compare schema generation time
@@ -70,14 +89,3 @@
   - [ ] Check if array handling is consistent between file and DB processing
   - [ ] Verify entity type conversion for edge cases
   - [ ] Add validation to ensure output paths are consistent
-
-## Future Enhancements
-
-- [ ] Integration with GraphQL-like query builders
-- [ ] Schema evolution and migration support
-- [ ] IDE plugins for SurrealQL query validation and autocompletion
-- [ ] Add automatic type detection improvements
-- [ ] Add more complex examples
-- [ ] Test against .surql files
-- [ ] Test against SurrealDB running in Docker
-- [ ] Package for npm release

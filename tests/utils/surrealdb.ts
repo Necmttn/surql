@@ -201,6 +201,7 @@ export function createTestConfig(url: string, namespace = "test", database = "te
     },
     imports: {
       style: "esm",
+      schemaSystem: "typebox",
       paths: {
         typebox: "@sinclair/typebox"
       }

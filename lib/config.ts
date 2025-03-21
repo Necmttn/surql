@@ -36,7 +36,7 @@ export const OutputConfigSchema = Type.Object({
 export const SchemaSystemSchema = Type.Union([
   Type.Literal("typebox"),
   Type.Literal("effect")
-], { default: "typebox" });
+], { default: "effect" });
 
 /**
  * Imports configuration schema
@@ -81,7 +81,7 @@ export const DEFAULT_CONFIG = {
   },
   imports: {
     style: "esm",
-    schemaSystem: "typebox",
+    schemaSystem: "effect",
     paths: {
       typebox: "@sinclair/typebox",
       effect: "@effect/schema"

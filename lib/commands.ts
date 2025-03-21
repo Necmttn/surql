@@ -19,21 +19,26 @@ import { loadConfigFromFile } from "./config.ts";
  * @param inputFile - Path to the input SurrealQL file
  * @param outputFile - Path to the output TypeScript file
  * @param configPath - Optional path to the configuration file
+ * @param options - Additional options for the process
  */
-export async function processFile(inputFile: string, outputFile?: string, configPath?: string): Promise<void> {
+export async function processFile(inputFile: string, outputFile?: string, configPath?: string, options: { noExit?: boolean; isTest?: boolean } = {}): Promise<void> {
   // Load configuration
   const config = await loadConfig(configPath);
 
   try {
-    const loadingSpinner = spinner();
-    loadingSpinner.start(`Processing file ${chalk.cyan(inputFile)}`);
+    const loadingSpinner = options.isTest ? null : spinner();
+    if (loadingSpinner) {
+      loadingSpinner.start(`Processing file ${chalk.cyan(inputFile)}`);
+    }
 
     // Read input file
     const content = await Deno.readTextFile(inputFile);
 
     // Parse SurrealQL to get table definitions
     let tables = parseSurQL(content);
-    loadingSpinner.message(`Parsed ${chalk.green(tables.length)} tables from SurrealQL`);
+    if (loadingSpinner) {
+      loadingSpinner.message(`Parsed ${chalk.green(tables.length)} tables from SurrealQL`);
+    }
 
     // Validate and fix references to non-existent tables
     tables = validateReferences(tables);
@@ -43,38 +48,51 @@ export async function processFile(inputFile: string, outputFile?: string, config
 
     // Choose schema generator based on configuration
     let schemaOutput: string;
-    if (config.imports.schemaSystem === "effect") {
-      loadingSpinner.message("Generating Effect Schema...");
-      schemaOutput = generateEffectSchemas(tables);
-    } else {
-      loadingSpinner.message("Generating TypeBox Schema...");
+    if (config.imports.schemaSystem === "typebox") {
+      if (loadingSpinner) {
+        loadingSpinner.message("Generating TypeBox Schema (legacy mode)...");
+      }
       schemaOutput = generateTypeBoxSchemas(tables);
+    } else {
+      if (loadingSpinner) {
+        loadingSpinner.message("Generating Effect Schema...");
+      }
+      schemaOutput = generateEffectSchemas(tables);
     }
 
     // Combine custom imports with schema output
-    let importPlaceholder = "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";";
-    if (config.imports.schemaSystem === "effect") {
-      importPlaceholder = "import { Schema } from \"@effect/schema\";\nimport { pipe } from \"effect/Function\";\nimport type { RecordId } from \"surrealdb\";";
+    let importPlaceholder = "import { Schema } from \"@effect/schema\";\nimport { pipe } from \"effect/Function\";\nimport type { RecordId } from \"surrealdb\";";
+    if (config.imports.schemaSystem === "typebox") {
+      importPlaceholder = "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";";
     }
 
     const output = schemaOutput.replace(importPlaceholder, imports);
 
     // Determine output path
     const targetFile = outputFile || getOutputPath(config);
-    loadingSpinner.message(`Writing output to ${chalk.cyan(targetFile)}`);
+    if (loadingSpinner) {
+      loadingSpinner.message(`Writing output to ${chalk.cyan(targetFile)}`);
+    }
 
     // Ensure output directory exists
     await ensureDir(dirname(targetFile));
 
     // Write output file
     await Deno.writeTextFile(targetFile, output);
-    loadingSpinner.stop(`Generated schemas written to ${chalk.green(targetFile)}`);
+    if (loadingSpinner) {
+      loadingSpinner.stop(`Generated schemas written to ${chalk.green(targetFile)}`);
+    }
 
-    // Explicitly exit with success code
-    await closeResourcesAndExit(0);
+    // Only exit if not in test mode
+    if (!options.noExit) {
+      await closeResourcesAndExit(0);
+    }
   } catch (error) {
     log.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    await closeResourcesAndExit(1);
+    if (!options.noExit) {
+      await closeResourcesAndExit(1);
+    }
+    throw error;
   }
 }
 
@@ -154,18 +172,18 @@ export async function processDB(dbOptions?: Partial<DbConfig>, outputFile?: stri
 
     // Choose schema generator based on configuration
     let schemaOutput: string;
-    if (config.imports.schemaSystem === "effect") {
+    if (config.imports.schemaSystem === "typebox") {
+      dbSpinner.message("Generating TypeBox Schema (legacy mode)...");
+      schemaOutput = generateTypeBoxSchemas(tables);
+    } else {
       dbSpinner.message("Generating Effect Schema...");
       schemaOutput = generateEffectSchemas(tables);
-    } else {
-      dbSpinner.message("Generating TypeBox Schema...");
-      schemaOutput = generateTypeBoxSchemas(tables);
     }
 
     // Combine custom imports with schema output
-    let importPlaceholder = "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";";
-    if (config.imports.schemaSystem === "effect") {
-      importPlaceholder = "import { Schema } from \"@effect/schema\";\nimport { pipe } from \"effect/Function\";\nimport type { RecordId } from \"surrealdb\";";
+    let importPlaceholder = "import { Schema } from \"@effect/schema\";\nimport { pipe } from \"effect/Function\";\nimport type { RecordId } from \"surrealdb\";";
+    if (config.imports.schemaSystem === "typebox") {
+      importPlaceholder = "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";";
     }
 
     const output = schemaOutput.replace(importPlaceholder, imports);

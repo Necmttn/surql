@@ -1,6 +1,3 @@
-import { Type, type Static } from "@sinclair/typebox";
-import type { RecordId } from "surrealdb";
-
 /**
  * Represents a table definition from SurrealDB schema
  */
