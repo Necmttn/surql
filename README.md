@@ -2,6 +2,17 @@
 
 Generate TypeBox schemas from SurrealQL schema definitions.
 
+## Features
+
+- Generate [TypeBox](https://github.com/sinclairzx81/typebox) schemas from
+  SurrealQL schema definitions
+- Support for various SurrealDB data types, including references, arrays, and
+  records
+- Generate TypeScript type definitions from SurrealDB schemas
+- Support for recursive schemas (self-referencing tables)
+- **New:** Helper functions for select, insert, update, and filter operations
+  (similar to [Drizzle TypeBox](https://orm.drizzle.team/docs/typebox))
+
 ## Usage
 
 You can use the tool directly without installation using `deno run`:
@@ -456,3 +467,39 @@ Each module in the `lib/db/` directory has a specific responsibility:
 - `import.ts`: Schema import and application
 - `utils.ts`: Common utility functions
 - `index.ts`: Re-exports all public functionality
+
+### TypeBox Helpers
+
+The generated schema now includes helper types for select, insert, update, and
+filter operations, similar to Drizzle's TypeBox functionality:
+
+```typescript
+import {
+  // Base types
+  TelegramChat,
+  TelegramChatFilter, // For filtering records
+  TelegramChatInsert, // For creating new records
+  // Helper types
+  TelegramChatSelect, // For specifying fields to select
+  TelegramChatUpdate, // For updating existing records
+} from "./generated/schema.ts";
+
+// Select chats with filters and field selection
+const chats = await selectChats(
+  db,
+  {
+    member_count: { gt: 5 }, // Filter condition
+    type: "group", // Simple equality filter
+    title: { contains: "Test" }, // String contains filter
+  },
+  {
+    // Only select these fields
+    title: true,
+    username: true,
+    member_count: true,
+  },
+);
+```
+
+See the [examples directory](./examples) for more information on using the
+TypeBox helpers.

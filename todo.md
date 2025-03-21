@@ -23,6 +23,7 @@
   - [x] Add placeholder structure
   - [x] Implement actual SurrealDB connection using Surreal.Instance()
   - [x] Parse schema information from INFO query
+- [x] Add TypeBox helper functions for select, insert, update operations
 - [ ] Add automatic type detection improvements
 
 ## Final Steps

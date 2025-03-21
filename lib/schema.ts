@@ -1,15 +1,19 @@
 import { Type, type Static } from "@sinclair/typebox";
 import type { RecordId } from "surrealdb";
+import { createSelectType, createInsertType, createUpdateType, createFilterType } from "./typebox.ts";
 
 /**
  * Represents a table definition from SurrealDB schema
  */
 export interface TableDefinition {
   name: string;
+  description?: string;
   fields: Array<{
     name: string;
     type: string;
     optional: boolean;
+    description?: string;
+    defaultValue?: string;
     reference?: {
       table: string;
       isOption: boolean;
@@ -29,6 +33,9 @@ export function parseType(type: string): { baseType: string; isOption: boolean; 
 
   // Remove any REFERENCE or other keywords that might appear after the type
   baseType = baseType.replace(/\s+REFERENCE.*$/i, '');
+
+  // Remove trailing semicolons if present
+  baseType = baseType.replace(/;$/, '');
 
   // Handle option types
   if (baseType.startsWith("option<")) {
@@ -77,6 +84,34 @@ export function parseType(type: string): { baseType: string; isOption: boolean; 
 }
 
 /**
+ * Extracts comment string from a line containing a COMMENT clause
+ * @param line The line to extract from
+ * @returns The extracted comment or undefined if not found
+ */
+function extractComment(line: string): string | undefined {
+  // Find the position of COMMENT keyword
+  const commentIndex = line.indexOf("COMMENT");
+  if (commentIndex === -1) return undefined;
+
+  // Look for both single and double quotes
+  let startQuoteIndex = line.indexOf('"', commentIndex);
+  const quoteChar = startQuoteIndex !== -1 ? '"' : "'";
+
+  // If no double quote, try single quote
+  if (startQuoteIndex === -1) {
+    startQuoteIndex = line.indexOf("'", commentIndex);
+    if (startQuoteIndex === -1) return undefined;
+  }
+
+  // Find the closing quote
+  const endQuoteIndex = line.indexOf(quoteChar, startQuoteIndex + 1);
+  if (endQuoteIndex === -1) return undefined;
+
+  // Extract the content between quotes
+  return line.substring(startQuoteIndex + 1, endQuoteIndex);
+}
+
+/**
  * Parses SurrealQL content to extract table definitions
  * @param content The SurrealQL content as a string
  * @returns Array of table definitions
@@ -85,12 +120,27 @@ export function parseSurQL(content: string): TableDefinition[] {
   const tables: TableDefinition[] = [];
   const lines = content.split("\n");
   let currentTable: TableDefinition | null = null;
+  let currentDescription: string | undefined = undefined;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmedLine = line.trim();
 
-    // Skip empty lines and comments
-    if (!trimmedLine || trimmedLine.startsWith("--")) continue;
+    // Process comments as potential descriptions for fields
+    if (trimmedLine.startsWith("--")) {
+      // Save comment as a potential description for the next field
+      const descriptionText = trimmedLine.substring(2).trim();
+      if (descriptionText) {
+        currentDescription = descriptionText;
+      }
+      continue;
+    }
+
+    // Skip empty lines
+    if (!trimmedLine) {
+      currentDescription = undefined; // Reset description on empty line
+      continue;
+    }
 
     // Check for table definition
     if (trimmedLine.startsWith("DEFINE TABLE")) {
@@ -99,20 +149,35 @@ export function parseSurQL(content: string): TableDefinition[] {
       }
       // Extract table name, handling OVERWRITE keyword
       const tableMatch = trimmedLine.match(/DEFINE TABLE (?:OVERWRITE )?(\w+)/);
+
       if (tableMatch) {
         const tableName = tableMatch[1];
+
+        // Check for COMMENT in the table definition
+        let tableDescription: string | undefined = undefined;
+        const commentDescription = extractComment(trimmedLine);
+        if (commentDescription) {
+          tableDescription = commentDescription;
+        } else {
+          // If COMMENT is not in this line, use the previous comment line
+          tableDescription = currentDescription;
+        }
+
         currentTable = {
           name: tableName,
+          description: tableDescription,
           fields: [],
         };
       }
+      currentDescription = undefined; // Reset description
       continue;
     }
 
     // Check for field definition
     if (trimmedLine.startsWith("DEFINE FIELD") && currentTable) {
-      // Modified regex to better match field definitions
-      const fieldMatch = trimmedLine.match(/DEFINE FIELD (?:OVERWRITE )?(\w+) ON ([a-zA-Z_0-9]+) TYPE ([^;]+)/);
+      // Modified regex to match field definitions, extracting only the type part
+      // This regex captures field_name, table_name, and type even if there's a semicolon at the end
+      const fieldMatch = trimmedLine.match(/DEFINE FIELD (?:OVERWRITE )?(\w+) ON ([a-zA-Z_0-9]+) TYPE ([^; ]+)/);
       if (fieldMatch) {
         const [, fieldName, tableName, fieldType] = fieldMatch;
 
@@ -130,14 +195,70 @@ export function parseSurQL(content: string): TableDefinition[] {
           const cleanType = fieldType.trim();
           const { baseType, isOption, reference } = parseType(cleanType);
 
+          // Store the comment line description, will use if no COMMENT clause is found
+          const lineDescription = currentDescription;
+
+          // Check for inline COMMENT in the line
+          const commentDescription = extractComment(trimmedLine);
+
+          // Look for default value and comment in subsequent lines
+          let defaultValue: string | undefined = undefined;
+          let multilineCommentDescription: string | undefined = undefined;
+
+          // Look ahead for DEFAULT, VALUE, or COMMENT clauses
+          let j = i + 1;
+          while (j < lines.length) {
+            const nextLine = lines[j].trim();
+
+            // Stop looking if we hit an empty line or a new define statement
+            if (!nextLine || nextLine.startsWith("DEFINE")) {
+              break;
+            }
+
+            // Check for DEFAULT clause
+            if (nextLine.startsWith("DEFAULT")) {
+              const defaultMatch = nextLine.match(/DEFAULT (?:ALWAYS )?(.+?)(?:;|$)/);
+              if (defaultMatch) {
+                defaultValue = defaultMatch[1].trim();
+              }
+            }
+
+            // Check for VALUE clause (which is a form of default)
+            if (nextLine.startsWith("VALUE")) {
+              const valueMatch = nextLine.match(/VALUE (.+?)(?:;|$)/);
+              if (valueMatch) {
+                defaultValue = valueMatch[1].trim();
+              }
+            }
+
+            // Check for COMMENT clause if not found in the main line
+            if (!commentDescription && nextLine.includes("COMMENT")) {
+              multilineCommentDescription = extractComment(nextLine);
+            }
+
+            j++;
+          }
+
+          // If we found lines with DEFAULT/VALUE/COMMENT, skip those lines
+          if (j > i + 1) {
+            i = j - 1; // -1 because the loop will increment i
+          }
+
+          // Prioritize COMMENT clause descriptions over comment line descriptions
+          // First check inline COMMENT, then multiline COMMENT, then comment line
+          const finalDescription = commentDescription || multilineCommentDescription || lineDescription;
+
           targetTable.fields.push({
             name: fieldName,
             type: baseType,
             optional: trimmedLine.includes("OPTIONAL") || isOption,
+            description: finalDescription,
+            defaultValue,
             reference
           });
         }
       }
+      currentDescription = undefined; // Reset description after field is defined
     }
   }
 
@@ -191,46 +312,79 @@ export function generateTypeBoxSchemas(tables: TableDefinition[]): string {
 const RecordIdType = <T extends string>(_table: T) => Type.Unsafe<RecordId<T>>();
 `;
 
+  // Add import for helper functions
+  const imports = `import { Type, type Static } from "@sinclair/typebox";
+import type { RecordId } from "surrealdb";
+import { createSelectType, createInsertType, createUpdateType, createFilterType } from "./typebox.ts";
+`;
+
   // Generate type definitions with references
   const schemaDefinitions = tables.map(table => {
-    const { name, fields } = table;
+    const { name, fields, description } = table;
     const typeName = formatTypeName(name);
     const schemaName = formatSchemaName(name);
     const needsRecursive = name === "telegram_message"; // Only telegram_message needs recursive for self-reference
 
     const fieldDefinitions = fields.map(field => {
       let typeBoxType: string;
+      const typeOptions: string[] = [];
+
+      // Add description if available
+      if (field.description) {
+        typeOptions.push(`description: '${field.description.replace(/'/g, "\\'")}'`);
+      }
+
+      // Add default value if available
+      if (field.defaultValue) {
+        typeOptions.push(`default: ${field.defaultValue}`);
+      }
+
+      // Build type options string
+      const typeOptionsStr = typeOptions.length > 0 ? `{ ${typeOptions.join(', ')} }` : '';
 
       switch (field.type.toLowerCase()) {
         case "int":
         case "number":
-          typeBoxType = "Type.Integer()";
+          typeBoxType = typeOptionsStr ? `Type.Integer(${typeOptionsStr})` : "Type.Integer()";
           break;
         case "float":
-          typeBoxType = "Type.Number()";
+          typeBoxType = typeOptionsStr ? `Type.Number(${typeOptionsStr})` : "Type.Number()";
           break;
         case "bool":
-          typeBoxType = "Type.Boolean()";
+          typeBoxType = typeOptionsStr ? `Type.Boolean(${typeOptionsStr})` : "Type.Boolean()";
           break;
-        case "datetime":
-          typeBoxType = "Type.Date()";
+        case "datetime": {
+          // Add format hint for datetime plus any other options
+          const dateTimeOptions = [...typeOptions].join(', ');
+          typeBoxType = `Type.Date({ ${dateTimeOptions} })`;
           break;
+        }
         case "array":
-          typeBoxType = "Type.Array(Type.String())";
+          typeBoxType = typeOptionsStr
+            ? `Type.Array(Type.String(), ${typeOptionsStr})`
+            : "Type.Array(Type.String())";
           break;
         case "array_float":
-          typeBoxType = "Type.Array(Type.Number())";
+          typeBoxType = typeOptionsStr
+            ? `Type.Array(Type.Number(), ${typeOptionsStr})`
+            : "Type.Array(Type.Number())";
           break;
         case "array_record":
           if (field.reference) {
             // Use union type with RecordIdType for references
-            typeBoxType = `Type.Array(RecordIdType('${field.reference.table}'))`;
+            typeBoxType = typeOptionsStr
+              ? `Type.Array(RecordIdType('${field.reference.table}'), ${typeOptionsStr})`
+              : `Type.Array(RecordIdType('${field.reference.table}'))`;
           } else {
-            typeBoxType = "Type.Array(Type.Record(Type.String(), Type.Unknown()))";
+            typeBoxType = typeOptionsStr
+              ? `Type.Array(Type.Record(Type.String(), Type.Unknown()), ${typeOptionsStr})`
+              : "Type.Array(Type.Record(Type.String(), Type.Unknown()))";
           }
           break;
         case "object":
-          typeBoxType = "Type.Record(Type.String(), Type.Unknown())";
+          typeBoxType = typeOptionsStr
+            ? `Type.Record(Type.String(), Type.Unknown(), ${typeOptionsStr})`
+            : "Type.Record(Type.String(), Type.Unknown())";
           break;
         case "record":
           if (field.reference) {
@@ -239,69 +393,110 @@ const RecordIdType = <T extends string>(_table: T) => Type.Unsafe<RecordId<T>>()
               typeBoxType = "This";
             } else {
               // Use string reference here with union type for RecordId
-              typeBoxType = `RecordIdType('${field.reference.table}')`;
+              typeBoxType = typeOptionsStr
+                ? `RecordIdType('${field.reference.table}', ${typeOptionsStr})`
+                : `RecordIdType('${field.reference.table}')`;
             }
           } else {
-            typeBoxType = "Type.Record(Type.String(), Type.Unknown())";
+            typeBoxType = typeOptionsStr
+              ? `Type.Record(Type.String(), Type.Unknown(), ${typeOptionsStr})`
+              : "Type.Record(Type.String(), Type.Unknown())";
           }
           break;
         case "references":
           if (field.reference) {
             // Use union type with RecordIdType for references
-            typeBoxType = `Type.Array(RecordIdType('${field.reference.table}'))`;
+            typeBoxType = typeOptionsStr
+              ? `Type.Array(RecordIdType('${field.reference.table}'), ${typeOptionsStr})`
+              : `Type.Array(RecordIdType('${field.reference.table}'))`;
           } else {
-            typeBoxType = "Type.Array(Type.String())";
+            typeBoxType = typeOptionsStr
+              ? `Type.Array(Type.String(), ${typeOptionsStr})`
+              : "Type.Array(Type.String())";
           }
           break;
         default:
-          typeBoxType = "Type.String()";
+          typeBoxType = typeOptionsStr ? `Type.String(${typeOptionsStr})` : "Type.String()";
+          break;
       }
 
-      if (field.optional) {
+      // Make optional if needed (already handled the datetime format)
+      if (field.type.toLowerCase() !== "datetime" && field.optional) {
         typeBoxType = `Type.Optional(${typeBoxType})`;
       }
 
       return `  ${field.name}: ${typeBoxType}`;
-    }).join(',\n');
+    });
 
-    // Add ID field at the beginning of each type
-    const idField = `  id: RecordIdType('${name}'),\n`;
-    const allFields = idField + fieldDefinitions;
+    // Prepare schema options with description if available
+    const schemaOptions = description
+      ? `{
+  $id: '${name}',
+  description: '${description.replace(/'/g, "\\'")}'
+}`
+      : `{
+  $id: '${name}'
+}`;
 
-    // Different format for recursive vs regular types
-    if (needsRecursive) {
-      return `// Type declaration for ${schemaName}
+    // Generate schema with helper types
+    const schemaDefinition = needsRecursive
+      ? `
+// Type declaration for ${schemaName}
 export const ${typeName} = Type.Recursive(This => Type.Object({
-${allFields}
-}), {
-  $id: '${name}',
-});
-`;
-    }
+${fieldDefinitions.join(",\n")}
+}), ${schemaOptions});
 
-    return `// Type declaration for ${schemaName}
+// Helper types for ${schemaName}
+export const ${schemaName}Select = createSelectType(${typeName});
+export const ${schemaName}Insert = createInsertType(${typeName});
+export const ${schemaName}Update = createUpdateType(${typeName});
+export const ${schemaName}Filter = createFilterType(${typeName});
+`
+      : `
+// Type declaration for ${schemaName}
 export const ${typeName} = Type.Object({
-${allFields}
-}, {
-  $id: '${name}',
-});
-`;
-  }).join('\n\n');
+${fieldDefinitions.join(",\n")}
+}, ${schemaOptions});
 
-  // Create Module registration
-  const moduleRegistration = `
+// Helper types for ${schemaName}
+export const ${schemaName}Select = createSelectType(${typeName});
+export const ${schemaName}Insert = createInsertType(${typeName});
+export const ${schemaName}Update = createUpdateType(${typeName});
+export const ${schemaName}Filter = createFilterType(${typeName});
+`;
+
+    return schemaDefinition;
+  });
+
+  // Generate module exports
+  const moduleExports = `
 const Module = Type.Module({
-  ${tables.map(table => `${table.name}: ${formatTypeName(table.name)}`).join(',\n  ')},
+${tables.map(table => `  ${table.name}: ${formatTypeName(table.name)}`).join(",\n")}
 });
 
-${tables.map(table => {
-    const schemaName = formatSchemaName(table.name);
-    return `const ${schemaName} = Module.Import('${table.name}');\nexport type ${schemaName} = Static<typeof ${schemaName}>;`;
-  }).join('\n')}
+${tables
+      .map(
+        table => `const ${formatSchemaName(table.name)} = Module.Import('${table.name}');
+export type ${formatSchemaName(table.name)} = Static<typeof ${formatSchemaName(table.name)}>;
+// Helper type exports
+export type ${formatSchemaName(table.name)}Select = Static<typeof ${formatSchemaName(table.name)}Select>;
+export type ${formatSchemaName(table.name)}Insert = Static<typeof ${formatSchemaName(table.name)}Insert>;
+export type ${formatSchemaName(table.name)}Update = Static<typeof ${formatSchemaName(table.name)}Update>;
+export type ${formatSchemaName(table.name)}Filter = Static<typeof ${formatSchemaName(table.name)}Filter>;`
+      )
+      .join("\n")}
 `;
-  const header = `// This file is generated by surql-gen. Do not edit it manually. \n\n//created at ${new Date().toLocaleString()} by @necmttn`;
-  // Combine everything with proper imports
-  return `${header}\n\nimport { Type, type Static } from "@sinclair/typebox";\nimport type { RecordId } from "surrealdb";\n\n${recordIdTypeHelper}\n${schemaDefinitions}\n\n${moduleRegistration}`;
+
+  // Combine all parts
+  return `// This file is generated by surql-gen. Do not edit it manually. \n
+//created at ${new Date().toLocaleString()} by @necmttn
+
+${imports}
+
+${recordIdTypeHelper}
+${schemaDefinitions.join("\n")}
+${moduleExports}
+`;
 }
 
 /**
