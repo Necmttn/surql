@@ -10,8 +10,120 @@ Generate TypeBox schemas from SurrealQL schema definitions.
   records
 - Generate TypeScript type definitions from SurrealDB schemas
 - Support for recursive schemas (self-referencing tables)
-- **New:** Helper functions for select, insert, update, and filter operations
-  (similar to [Drizzle TypeBox](https://orm.drizzle.team/docs/typebox))
+- Preserve default values and field comments in generated types
+
+## Usage
+
+You can use the tool directly without installation using `deno run`:
+
+```bash
+deno run -A https://deno.land/x/surql_gen/mod.ts process -i schema.surql
+```
+
+Or you can install it globally:
+
+```bash
+deno install -A -n surql-gen https://deno.land/x/surql_gen/mod.ts
+```
+
+Then use it like this:
+
+```bash
+surql-gen process -i schema.surql
+```
+
+## Examples
+
+### Basic Schema
+
+Given a SurrealQL schema like this:
+
+```sql
+DEFINE TABLE user SCHEMAFULL;
+DEFINE FIELD username ON user TYPE string;
+DEFINE FIELD email ON user TYPE string;
+DEFINE FIELD created_at ON user TYPE datetime DEFAULT time::now();
+```
+
+The tool will generate a TypeBox schema like this:
+
+```typescript
+// Type declaration for User
+export const UserType = Type.Object({
+  username: Type.String(),
+  email: Type.String(),
+  created_at: Type.Date({ default: time::now() })
+}, {
+  $id: 'user'
+});
+
+// Type export
+export type User = Static<typeof User>;
+```
+
+### Schema with References
+
+If your schema includes relationships between tables:
+
+```sql
+DEFINE TABLE user SCHEMAFULL;
+DEFINE FIELD username ON user TYPE string;
+
+DEFINE TABLE post SCHEMAFULL;
+DEFINE FIELD title ON post TYPE string;
+DEFINE FIELD author ON post TYPE record<user> COMMENT "The author of the post";
+```
+
+The tool will generate proper types with references:
+
+```typescript
+// Type declaration for User
+export const UserType = Type.Object({
+  username: Type.String(),
+}, {
+  $id: "user",
+});
+
+// Type declaration for Post
+export const PostType = Type.Object({
+  title: Type.String(),
+  author: RecordIdType("user", { description: "The author of the post" }),
+}, {
+  $id: "post",
+});
+
+// Type exports
+export type User = Static<typeof User>;
+export type Post = Static<typeof Post>;
+```
+
+### Schema with Comments and Default Values
+
+If your schema includes comments and default values:
+
+```sql
+DEFINE TABLE user SCHEMAFULL;
+DEFINE FIELD username ON user TYPE string COMMENT "The user's unique name";
+DEFINE FIELD active ON user TYPE bool DEFAULT true COMMENT "Whether the user is active";
+```
+
+The tool will preserve these in the generated types:
+
+```typescript
+// Type declaration for User
+export const UserType = Type.Object({
+  username: Type.String({ description: "The user's unique name" }),
+  active: Type.Boolean({
+    description: "Whether the user is active",
+    default: true,
+  }),
+}, {
+  $id: "user",
+});
+
+// Type export
+export type User = Static<typeof User>;
+```
 
 ## Usage
 
@@ -467,39 +579,3 @@ Each module in the `lib/db/` directory has a specific responsibility:
 - `import.ts`: Schema import and application
 - `utils.ts`: Common utility functions
 - `index.ts`: Re-exports all public functionality
-
-### TypeBox Helpers
-
-The generated schema now includes helper types for select, insert, update, and
-filter operations, similar to Drizzle's TypeBox functionality:
-
-```typescript
-import {
-  // Base types
-  TelegramChat,
-  TelegramChatFilter, // For filtering records
-  TelegramChatInsert, // For creating new records
-  // Helper types
-  TelegramChatSelect, // For specifying fields to select
-  TelegramChatUpdate, // For updating existing records
-} from "./generated/schema.ts";
-
-// Select chats with filters and field selection
-const chats = await selectChats(
-  db,
-  {
-    member_count: { gt: 5 }, // Filter condition
-    type: "group", // Simple equality filter
-    title: { contains: "Test" }, // String contains filter
-  },
-  {
-    // Only select these fields
-    title: true,
-    username: true,
-    member_count: true,
-  },
-);
-```
-
-See the [examples directory](./examples) for more information on using the
-TypeBox helpers.

@@ -17,15 +17,6 @@ export {
   validateReferences
 } from "./lib/schema.ts";
 
-// Export TypeBox helper functions
-export {
-  createSelectType,
-  createInsertType,
-  createUpdateType,
-  createFilterType,
-  registerHelperTypes
-} from "./lib/typebox.ts";
-
 // Export command handlers
 export {
   handleCommand,

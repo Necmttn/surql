@@ -1,6 +1,5 @@
 import { Type, type Static } from "@sinclair/typebox";
 import type { RecordId } from "surrealdb";
-import { createSelectType, createInsertType, createUpdateType, createFilterType } from "./typebox.ts";
 
 /**
  * Represents a table definition from SurrealDB schema
@@ -103,8 +102,24 @@ function extractComment(line: string): string | undefined {
     if (startQuoteIndex === -1) return undefined;
   }
 
-  // Find the closing quote
-  const endQuoteIndex = line.indexOf(quoteChar, startQuoteIndex + 1);
+  // Find the closing quote - accounting for escaped quotes
+  let endQuoteIndex = -1;
+  let searchPos = startQuoteIndex + 1;
+
+  while (searchPos < line.length) {
+    const nextQuotePos = line.indexOf(quoteChar, searchPos);
+    if (nextQuotePos === -1) break;
+
+    // Check if this quote is escaped
+    if (line[nextQuotePos - 1] === '\\') {
+      searchPos = nextQuotePos + 1;
+      continue;
+    }
+
+    endQuoteIndex = nextQuotePos;
+    break;
+  }
+
   if (endQuoteIndex === -1) return undefined;
 
   // Extract the content between quotes
@@ -177,7 +192,7 @@ export function parseSurQL(content: string): TableDefinition[] {
     if (trimmedLine.startsWith("DEFINE FIELD") && currentTable) {
       // Modified regex to match field definitions, extracting only the type part
       // This regex captures field_name, table_name, and type even if there's a semicolon at the end
-      const fieldMatch = trimmedLine.match(/DEFINE FIELD (?:OVERWRITE )?(\w+) ON ([a-zA-Z_0-9]+) TYPE ([^; ]+)/);
+      const fieldMatch = trimmedLine.match(/DEFINE FIELD (?:OVERWRITE )?(\w+) ON ([a-zA-Z_0-9]+) TYPE ([^;]+?)(?:DEFAULT|COMMENT|PERMISSIONS|ASSERT|;|$)/);
       if (fieldMatch) {
         const [, fieldName, tableName, fieldType] = fieldMatch;
 
@@ -201,11 +216,17 @@ export function parseSurQL(content: string): TableDefinition[] {
           // Check for inline COMMENT in the line
           const commentDescription = extractComment(trimmedLine);
 
-          // Look for default value and comment in subsequent lines
+          // Look for inline DEFAULT in the line
           let defaultValue: string | undefined = undefined;
+          const defaultMatch = trimmedLine.match(/DEFAULT (?:ALWAYS )?([^;]+?)(?:COMMENT|PERMISSIONS|ASSERT|;|$)/);
+          if (defaultMatch) {
+            defaultValue = defaultMatch[1].trim();
+          }
+
+          // Look for multiline DEFAULT, VALUE, or additional COMMENT clauses
           let multilineCommentDescription: string | undefined = undefined;
 
-          // Look ahead for DEFAULT, VALUE, or COMMENT clauses
+          // Look ahead for DEFAULT, VALUE, or COMMENT clauses if not found inline
           let j = i + 1;
           while (j < lines.length) {
             const nextLine = lines[j].trim();
@@ -215,8 +236,8 @@ export function parseSurQL(content: string): TableDefinition[] {
               break;
             }
 
-            // Check for DEFAULT clause
-            if (nextLine.startsWith("DEFAULT")) {
+            // Check for DEFAULT clause if not already found
+            if (!defaultValue && nextLine.startsWith("DEFAULT")) {
               const defaultMatch = nextLine.match(/DEFAULT (?:ALWAYS )?(.+?)(?:;|$)/);
               if (defaultMatch) {
                 defaultValue = defaultMatch[1].trim();
@@ -309,13 +330,12 @@ export function generateTypeBoxSchemas(tables: TableDefinition[]): string {
   // Define RecordIdType helper
   const recordIdTypeHelper = `
 // Type for representing a RecordId in TypeBox
-const RecordIdType = <T extends string>(_table: T) => Type.Unsafe<RecordId<T>>();
+const RecordIdType = <T extends string>(_table: T, options?: { description?: string }) => Type.Unsafe<RecordId<T>>({ ...options });
 `;
 
-  // Add import for helper functions
+  // Add imports (removed helper functions import)
   const imports = `import { Type, type Static } from "@sinclair/typebox";
 import type { RecordId } from "surrealdb";
-import { createSelectType, createInsertType, createUpdateType, createFilterType } from "./typebox.ts";
 `;
 
   // Generate type definitions with references
@@ -323,20 +343,57 @@ import { createSelectType, createInsertType, createUpdateType, createFilterType 
     const { name, fields, description } = table;
     const typeName = formatTypeName(name);
     const schemaName = formatSchemaName(name);
-    const needsRecursive = name === "telegram_message"; // Only telegram_message needs recursive for self-reference
+    const needsRecursive = name === "telegram_message";
 
-    const fieldDefinitions = fields.map(field => {
+    // Check if table already has an 'id' field
+    const hasIdField = fields.some(field => field.name === 'id');
+
+    // Create a list of field definitions, adding default 'id' field if needed
+    let fieldDefinitions = [];
+
+    // Add default 'id' field if not explicitly defined
+    if (!hasIdField) {
+      fieldDefinitions.push(`  id: RecordIdType('${name}', { description: 'Unique identifier' })`);
+    }
+
+    // Add all other field definitions
+    fieldDefinitions = fieldDefinitions.concat(fields.map(field => {
       let typeBoxType: string;
       const typeOptions: string[] = [];
 
       // Add description if available
       if (field.description) {
-        typeOptions.push(`description: '${field.description.replace(/'/g, "\\'")}'`);
+        // Properly escape apostrophes and quotes in descriptions
+        const escapedDescription = field.description
+          .replace(/\\'/g, "'") // Unescape already escaped single quotes
+          .replace(/'/g, "\\'"); // Escape all single quotes
+        typeOptions.push(`description: '${escapedDescription}'`);
       }
 
       // Add default value if available
       if (field.defaultValue) {
-        typeOptions.push(`default: ${field.defaultValue}`);
+        // Handle different types of default values with proper quoting
+        let formattedDefaultValue = field.defaultValue;
+
+        // Handle SurrealDB function calls (like time::now())
+        if (formattedDefaultValue.includes('::')) {
+          formattedDefaultValue = `'${formattedDefaultValue}'`;
+        }
+
+        // If it's a simple string with quotes, keep as is
+        // If it's a boolean or number, keep as is
+        // If it's a string that's not already quoted, add quotes
+        if (!formattedDefaultValue.startsWith("'") &&
+          !formattedDefaultValue.startsWith('"') &&
+          formattedDefaultValue !== 'true' &&
+          formattedDefaultValue !== 'false' &&
+          !/^-?\d+(\.\d+)?$/.test(formattedDefaultValue) &&
+          !formattedDefaultValue.startsWith('[') &&
+          !formattedDefaultValue.startsWith('{')) {
+          formattedDefaultValue = `'${formattedDefaultValue}'`;
+        }
+
+        typeOptions.push(`default: ${formattedDefaultValue}`);
       }
 
       // Build type options string
@@ -355,7 +412,7 @@ import { createSelectType, createInsertType, createUpdateType, createFilterType 
           break;
         case "datetime": {
           // Add format hint for datetime plus any other options
-          const dateTimeOptions = [...typeOptions].join(', ');
+          const dateTimeOptions = typeOptions.length > 0 ? typeOptions.join(', ') : '';
           typeBoxType = `Type.Date({ ${dateTimeOptions} })`;
           break;
         }
@@ -426,7 +483,7 @@ import { createSelectType, createInsertType, createUpdateType, createFilterType 
       }
 
       return `  ${field.name}: ${typeBoxType}`;
-    });
+    }));
 
     // Prepare schema options with description if available
     const schemaOptions = description
@@ -438,31 +495,19 @@ import { createSelectType, createInsertType, createUpdateType, createFilterType 
   $id: '${name}'
 }`;
 
-    // Generate schema with helper types
+    // Generate schema - removed helper types
     const schemaDefinition = needsRecursive
       ? `
 // Type declaration for ${schemaName}
 export const ${typeName} = Type.Recursive(This => Type.Object({
 ${fieldDefinitions.join(",\n")}
 }), ${schemaOptions});
-
-// Helper types for ${schemaName}
-export const ${schemaName}Select = createSelectType(${typeName});
-export const ${schemaName}Insert = createInsertType(${typeName});
-export const ${schemaName}Update = createUpdateType(${typeName});
-export const ${schemaName}Filter = createFilterType(${typeName});
 `
       : `
 // Type declaration for ${schemaName}
 export const ${typeName} = Type.Object({
 ${fieldDefinitions.join(",\n")}
 }, ${schemaOptions});
-
-// Helper types for ${schemaName}
-export const ${schemaName}Select = createSelectType(${typeName});
-export const ${schemaName}Insert = createInsertType(${typeName});
-export const ${schemaName}Update = createUpdateType(${typeName});
-export const ${schemaName}Filter = createFilterType(${typeName});
 `;
 
     return schemaDefinition;
@@ -477,12 +522,7 @@ ${tables.map(table => `  ${table.name}: ${formatTypeName(table.name)}`).join(",\
 ${tables
       .map(
         table => `const ${formatSchemaName(table.name)} = Module.Import('${table.name}');
-export type ${formatSchemaName(table.name)} = Static<typeof ${formatSchemaName(table.name)}>;
-// Helper type exports
-export type ${formatSchemaName(table.name)}Select = Static<typeof ${formatSchemaName(table.name)}Select>;
-export type ${formatSchemaName(table.name)}Insert = Static<typeof ${formatSchemaName(table.name)}Insert>;
-export type ${formatSchemaName(table.name)}Update = Static<typeof ${formatSchemaName(table.name)}Update>;
-export type ${formatSchemaName(table.name)}Filter = Static<typeof ${formatSchemaName(table.name)}Filter>;`
+export type ${formatSchemaName(table.name)} = Static<typeof ${formatSchemaName(table.name)}>;`
       )
       .join("\n")}
 `;

@@ -54,6 +54,8 @@ function parseFieldDefinition(fieldDef: string): {
   kind: string;
   optional: boolean;
   referencedTable?: string;
+  description?: string;
+  defaultValue?: string;
 } {
   // Extract the actual type from the field definition
   const typeMatch = fieldDef.match(/TYPE\s+(\S+)/i);
@@ -74,6 +76,20 @@ function parseFieldDefinition(fieldDef: string): {
   const kind = 'scalar';
   let isOptional = false;
   let referencedTable: string | undefined;
+  let description: string | undefined;
+  let defaultValue: string | undefined;
+
+  // Extract description from COMMENT clause
+  const commentMatch = fieldDef.match(/COMMENT\s+['"]([^'"]+)['"]/i);
+  if (commentMatch) {
+    description = commentMatch[1];
+  }
+
+  // Extract default value from DEFAULT clause
+  const defaultMatch = fieldDef.match(/DEFAULT\s+([^;]+?)(?:COMMENT|PERMISSIONS|ASSERT|;|$)/i);
+  if (defaultMatch) {
+    defaultValue = defaultMatch[1].trim();
+  }
 
   // Check if the type is an option type
   if (type.startsWith('option<')) {
@@ -90,7 +106,9 @@ function parseFieldDefinition(fieldDef: string): {
         type: 'references',
         kind: 'relation',
         optional: isOptional,
-        referencedTable
+        referencedTable,
+        description,
+        defaultValue
       };
     }
 
@@ -103,7 +121,9 @@ function parseFieldDefinition(fieldDef: string): {
         type: 'record',
         kind: 'relation',
         optional: isOptional,
-        referencedTable
+        referencedTable,
+        description,
+        defaultValue
       };
     }
 
@@ -120,7 +140,9 @@ function parseFieldDefinition(fieldDef: string): {
       type: 'references',
       kind: 'relation',
       optional: isOptional,
-      referencedTable
+      referencedTable,
+      description,
+      defaultValue
     };
   }
 
@@ -133,7 +155,9 @@ function parseFieldDefinition(fieldDef: string): {
       type: 'record',
       kind: 'relation',
       optional: isOptional,
-      referencedTable
+      referencedTable,
+      description,
+      defaultValue
     };
   }
 
@@ -143,7 +167,9 @@ function parseFieldDefinition(fieldDef: string): {
     return {
       type: 'array',
       kind: 'array',
-      optional: isOptional
+      optional: isOptional,
+      description,
+      defaultValue
     };
   }
 
@@ -152,7 +178,9 @@ function parseFieldDefinition(fieldDef: string): {
     return {
       type: 'int',
       kind: 'scalar',
-      optional: isOptional
+      optional: isOptional,
+      description,
+      defaultValue
     };
   }
 
@@ -160,7 +188,9 @@ function parseFieldDefinition(fieldDef: string): {
     return {
       type: 'bool',
       kind: 'scalar',
-      optional: isOptional
+      optional: isOptional,
+      description,
+      defaultValue
     };
   }
 
@@ -168,7 +198,9 @@ function parseFieldDefinition(fieldDef: string): {
     return {
       type: 'datetime',
       kind: 'scalar',
-      optional: isOptional
+      optional: isOptional,
+      description,
+      defaultValue
     };
   }
 
@@ -176,7 +208,9 @@ function parseFieldDefinition(fieldDef: string): {
     type,
     kind,
     optional: isOptional,
-    referencedTable
+    referencedTable,
+    description,
+    defaultValue
   };
 }
 
@@ -323,6 +357,8 @@ export async function fetchSchemaFromDB(config: Config): Promise<TableDefinition
             name: fieldName,
             type: parsed.type,
             optional: parsed.optional,
+            description: parsed.description,
+            defaultValue: parsed.defaultValue,
             reference: parsed.referencedTable ? {
               table: parsed.referencedTable,
               isOption: parsed.optional
@@ -334,6 +370,24 @@ export async function fetchSchemaFromDB(config: Config): Promise<TableDefinition
           const fieldType = fieldObject.type || 'string';
           const fieldKind = fieldObject.kind;
           const isOptional = fieldObject.optional === true;
+
+          // Extract description and default value if available
+          let description: string | undefined = undefined;
+          let defaultValue: string | undefined = undefined;
+
+          // Try to extract description and default from the field information
+          if (typeof fieldObject.type === 'string') {
+            // Try to extract from the type string
+            const commentMatch = fieldObject.type.match(/COMMENT\s+['"]([^'"]+)['"]/i);
+            if (commentMatch) {
+              description = commentMatch[1];
+            }
+
+            const defaultMatch = fieldObject.type.match(/DEFAULT\s+([^;]+?)(?:COMMENT|PERMISSIONS|ASSERT|;|$)/i);
+            if (defaultMatch) {
+              defaultValue = defaultMatch[1].trim();
+            }
+          }
 
           console.log(`Processing object field ${fieldName} with type: ${fieldType}`);
 
@@ -348,6 +402,8 @@ export async function fetchSchemaFromDB(config: Config): Promise<TableDefinition
               name: fieldName,
               type: 'references',
               optional: isOptional,
+              description,
+              defaultValue,
               reference: referencedTable ? {
                 table: referencedTable,
                 isOption: isOptional
@@ -367,6 +423,8 @@ export async function fetchSchemaFromDB(config: Config): Promise<TableDefinition
             name: fieldName,
             type: fieldType,
             optional: isOptional,
+            description,
+            defaultValue,
             reference: referencedTable || fieldKind === "relation" ? {
               table: referencedTable || '',
               isOption: typeof fieldType === 'string' && fieldType.startsWith("option<")
@@ -488,6 +546,8 @@ export function parseSchemaFromInfoResponses(
           name: fieldName,
           type: parsed.type,
           optional: parsed.optional,
+          description: parsed.description,
+          defaultValue: parsed.defaultValue,
           reference: parsed.referencedTable ? {
             table: parsed.referencedTable,
             isOption: parsed.optional
@@ -500,8 +560,29 @@ export function parseSchemaFromInfoResponses(
         const fieldKind = fieldObject.kind;
         const isOptional = fieldObject.optional === true;
 
+        // Extract description and default value if available
+        let description: string | undefined = undefined;
+        let defaultValue: string | undefined = undefined;
+
+        // Try to extract description and default from the field information
+        if (typeof fieldObject.type === 'string') {
+          // Try to extract from the type string
+          const commentMatch = fieldObject.type.match(/COMMENT\s+['"]([^'"]+)['"]/i);
+          if (commentMatch) {
+            description = commentMatch[1];
+          }
+
+          const defaultMatch = fieldObject.type.match(/DEFAULT\s+([^;]+?)(?:COMMENT|PERMISSIONS|ASSERT|;|$)/i);
+          if (defaultMatch) {
+            defaultValue = defaultMatch[1].trim();
+          }
+        }
+
+        console.log(`Processing object field ${fieldName} with type: ${fieldType}`);
+
         // Check if it's a references field
         if (typeof fieldType === 'string' && fieldType.startsWith('references<')) {
+          console.log(`Found references type for field ${fieldName}: ${fieldType}`);
           // Extract the referenced table name
           const match = fieldType.match(/references<([^>]+)>/);
           const referencedTable = match ? match[1] : undefined;
@@ -510,6 +591,8 @@ export function parseSchemaFromInfoResponses(
             name: fieldName,
             type: 'references',
             optional: isOptional,
+            description,
+            defaultValue,
             reference: referencedTable ? {
               table: referencedTable,
               isOption: isOptional
@@ -529,6 +612,8 @@ export function parseSchemaFromInfoResponses(
           name: fieldName,
           type: fieldType,
           optional: isOptional,
+          description,
+          defaultValue,
           reference: referencedTable || fieldKind === "relation" ? {
             table: referencedTable || '',
             isOption: typeof fieldType === 'string' && fieldType.startsWith("option<")
