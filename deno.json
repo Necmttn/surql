@@ -1,6 +1,6 @@
 {
   "name": "@necmttn/surql-gen",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "SurrealDB schema generator for TypeBox",
   "exports": "./mod.ts",
   "tasks": {
@@ -9,7 +9,8 @@
     "run": "deno run -A mod.ts",
     "run:test": "deno run -A mod.ts -i ./telegram.surql -o ./output.ts",
     "run:example": "deno run -A mod.ts -i ./examples/user_post.surql -o ./examples/generated/types.ts",
-    "run:db": "deno run -A mod.ts --db http://localhost:8000 --output ./output.ts"
+    "run:db": "deno run -A mod.ts --db http://localhost:8000 --output ./output.ts",
+    "export-schema": "deno run -A mod.ts export-schema"
   },
   "license": "MIT",
   "imports": {

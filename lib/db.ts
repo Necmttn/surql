@@ -11,6 +11,14 @@ import { Surreal } from "surrealdb";
 interface SurrealDBSchemaInfo {
   tables?: Record<string, string | { name: string }>;
   databases?: Record<string, string>;
+  functions?: Record<string, string>;
+  configs?: Record<string, string>;
+  analyzers?: Record<string, string>;
+  apis?: Record<string, string>;
+  models?: Record<string, string>;
+  params?: Record<string, string>;
+  users?: Record<string, string>;
+  accesses?: Record<string, string>;
 }
 
 /**
@@ -29,6 +37,13 @@ interface SurrealFieldInfo {
  */
 interface SurrealTableSchemaInfo {
   fields: Record<string, SurrealFieldInfo | string>;
+  indexes?: Record<string, string>;
+  events?: Record<string, string>;
+  scopes?: Record<string, string>;
+  lives?: Record<string, string>;
+  params?: Record<string, string>;
+  tables?: Record<string, string>;
+  accesses?: Record<string, string>;
 }
 
 /**
@@ -174,15 +189,33 @@ export function normalizeSchemaInfo(raw: unknown): SurrealDBSchemaInfo {
   }
 
   const info = raw as Record<string, unknown>;
+  const result: SurrealDBSchemaInfo = {};
 
-  // Handle database-level info
-  if ('tables' in info) {
-    // Convert any string or object tables to a consistent format
-    const tables = info.tables as Record<string, string | { name: string }>;
-    return { tables };
+  // Extract all supported database objects
+  const objectTypes = [
+    'tables', 'functions', 'configs', 'analyzers',
+    'apis', 'models', 'params', 'users', 'accesses'
+  ];
+
+  for (const type of objectTypes) {
+    if (type in info) {
+      // Handle tables specifically since it has a special type
+      if (type === 'tables') {
+        result.tables = info.tables as Record<string, string | { name: string }>;
+      } else {
+        // For other types, they are expected to be Record<string, string>
+        result[type as keyof SurrealDBSchemaInfo] =
+          info[type] as Record<string, string>;
+      }
+    }
   }
 
-  return { tables: {} };
+  // If no data was found, at least return empty tables
+  if (Object.keys(result).length === 0) {
+    return { tables: {} };
+  }
+
+  return result;
 }
 
 /**
@@ -514,7 +547,7 @@ export function parseSchemaFromInfoResponses(
 }
 
 /**
- * Export schema definitions from a database
+ * Export schema definitions from a SurrealDB database
  * 
  * @param config - Configuration with database connection details
  * @param applyOverwrite - Whether to add OVERWRITE keyword to definitions
@@ -568,12 +601,9 @@ export async function exportSchemaFromDB(
     }
 
     const schemaInfo = normalizeSchemaInfo(infoResult[0]);
+    console.log("Schema info:", JSON.stringify(schemaInfo, null, 2));
 
-    if (!schemaInfo.tables || Object.keys(schemaInfo.tables).length === 0) {
-      throw new Error("No tables found in schema information");
-    }
-
-    // Process each table to get its schema
+    // Initialize schema lines
     const schemaLines: string[] = [
       "-- ------------------------------",
       "-- SCHEMA DEFINITIONS",
@@ -583,77 +613,148 @@ export async function exportSchemaFromDB(
       ""
     ];
 
-    // Get all table definitions first
-    for (const tableName of Object.keys(schemaInfo.tables)) {
-      // Skip any table definitions that look like system tables
-      if (tableName.startsWith('_') || tableName.startsWith('sdb_')) {
-        continue;
+    // Process database-level objects first
+    const dbObjectTypes = [
+      { type: 'functions', title: 'FUNCTIONS' },
+      { type: 'configs', title: 'CONFIGS' },
+      { type: 'analyzers', title: 'ANALYZERS' },
+      { type: 'apis', title: 'APIS' },
+      { type: 'models', title: 'MODELS' },
+      { type: 'params', title: 'PARAMS' }
+    ];
+
+    for (const { type, title } of dbObjectTypes) {
+      const objects = schemaInfo[type as keyof SurrealDBSchemaInfo];
+
+      if (objects && Object.keys(objects).length > 0) {
+        // Add section header
+        schemaLines.push("");
+        schemaLines.push("-- ------------------------------");
+        schemaLines.push(`-- ${title}`);
+        schemaLines.push("-- ------------------------------");
+        schemaLines.push("");
+
+        // Add each object definition
+        for (const [name, definition] of Object.entries(objects)) {
+          if (typeof definition === 'string') {
+            // Only modify the definition if OVERWRITE is needed
+            if (applyOverwrite) {
+              // Definitions typically start with DEFINE <TYPE>
+              // Add OVERWRITE after DEFINE <TYPE>
+              const modifiedDef = definition.replace(
+                /DEFINE\s+(FUNCTION|CONFIG|ANALYZER|API|MODEL|PARAM)/i,
+                'DEFINE $1 OVERWRITE'
+              );
+              schemaLines.push(modifiedDef);
+            } else {
+              schemaLines.push(definition);
+            }
+            schemaLines.push("");
+          }
+        }
       }
+    }
 
-      const overwriteKeyword = applyOverwrite ? "OVERWRITE " : "";
+    // Process tables if they exist
+    if (schemaInfo.tables && Object.keys(schemaInfo.tables).length > 0) {
+      // Add section header for tables
+      schemaLines.push("");
+      schemaLines.push("-- ------------------------------");
+      schemaLines.push("-- TABLES");
+      schemaLines.push("-- ------------------------------");
 
-      // Fetch table info
-      const tableInfoResult = await db.query(`INFO FOR TABLE ${tableName};`);
+      // Get all table definitions
+      for (const tableName of Object.keys(schemaInfo.tables)) {
+        // Skip any table definitions that look like system tables
+        if (tableName.startsWith('_') || tableName.startsWith('sdb_')) {
+          continue;
+        }
 
-      if (tableInfoResult?.[0]) {
-        // Add table definition
+        // Add table section comments
         schemaLines.push("");
         schemaLines.push("-- ------------------------------");
         schemaLines.push(`-- TABLE: ${tableName}`);
         schemaLines.push("-- ------------------------------");
         schemaLines.push("");
 
-        // Get table type and other options
-        const tableInfo = tableInfoResult[0] as Record<string, unknown>;
-        let tableType = "NORMAL";
-        let schemaMode = "SCHEMAFULL";
-        let permissions = "NONE";
+        // Get the raw table definition from schemaInfo, which comes directly from SurrealDB
+        const rawTableDef = typeof schemaInfo.tables[tableName] === 'string'
+          ? schemaInfo.tables[tableName] as string
+          : `DEFINE TABLE ${tableName} TYPE NORMAL SCHEMAFULL PERMISSIONS NONE`;
 
-        if (tableInfo.type) {
-          tableType = tableInfo.type as string;
-        }
-        if (tableInfo.schema) {
-          schemaMode = (tableInfo.schema as string).toUpperCase();
-        }
-        if (tableInfo.permissions) {
-          permissions = "FOR select, create, update, delete FULL";
+        // Only modify the definition if OVERWRITE is needed
+        if (applyOverwrite) {
+          // Add OVERWRITE keyword after DEFINE TABLE
+          schemaLines.push(rawTableDef.replace('DEFINE TABLE', 'DEFINE TABLE OVERWRITE'));
+        } else {
+          schemaLines.push(rawTableDef);
         }
 
-        schemaLines.push(`DEFINE TABLE ${overwriteKeyword}${tableName} TYPE ${tableType} ${schemaMode} PERMISSIONS ${permissions};`);
         schemaLines.push("");
 
-        // Get fields
-        if (tableInfo.fields && typeof tableInfo.fields === 'object') {
-          const fields = tableInfo.fields as Record<string, SurrealFieldInfo | string>;
+        // Fetch table info to get fields and other table-level objects
+        const tableInfoResult = await db.query(`INFO FOR TABLE ${tableName};`);
 
-          for (const fieldName of Object.keys(fields)) {
-            const field = fields[fieldName];
+        if (tableInfoResult?.[0]) {
+          const tableInfo = tableInfoResult[0] as SurrealTableSchemaInfo;
 
-            if (typeof field === 'string') {
-              // Simple field definition
-              // Extract just the type information from the field string (the part after 'TYPE')
-              const fieldDefParts = field.split(/\s+TYPE\s+/i);
-              if (fieldDefParts.length > 1) {
-                // Only use the type part to avoid duplication
-                const fieldTypePart = fieldDefParts[1];
-                schemaLines.push(`DEFINE FIELD ${overwriteKeyword}${fieldName} ON ${tableName} TYPE ${fieldTypePart};`);
-              } else {
-                // Fallback if we can't parse it properly
-                schemaLines.push(`DEFINE FIELD ${overwriteKeyword}${fieldName} ON ${tableName} ${field};`);
+          // Process fields
+          if (tableInfo.fields && Object.keys(tableInfo.fields).length > 0) {
+            for (const fieldName of Object.keys(tableInfo.fields)) {
+              const field = tableInfo.fields[fieldName];
+
+              if (typeof field === 'string') {
+                // Raw field definition as string
+                if (applyOverwrite) {
+                  // Add OVERWRITE keyword after DEFINE FIELD
+                  schemaLines.push(field.replace('DEFINE FIELD', 'DEFINE FIELD OVERWRITE'));
+                } else {
+                  schemaLines.push(field);
+                }
+              } else if (typeof field === 'object') {
+                // Handle complex field object (fallback in case the raw string isn't available)
+                const overwriteKeyword = applyOverwrite ? 'OVERWRITE ' : '';
+                let fieldDef = `DEFINE FIELD ${overwriteKeyword}${fieldName} ON ${tableName} TYPE ${field.type}`;
+
+                if (field.value !== undefined) {
+                  fieldDef += ` VALUE ${field.value}`;
+                }
+
+                if (field.optional) {
+                  fieldDef += " OPTIONAL";
+                }
+
+                schemaLines.push(`${fieldDef};`);
               }
-            } else if (typeof field === 'object') {
-              // Complex field definition
-              let fieldDef = `DEFINE FIELD ${overwriteKeyword}${fieldName} ON ${tableName} TYPE ${field.type}`;
+            }
+          }
 
-              if (field.value !== undefined) {
-                fieldDef += ` VALUE ${field.value}`;
+          // Define a list of table-level objects to process
+          const tableObjectTypes = [
+            { prop: 'indexes', title: 'Indexes', defineType: 'INDEX' },
+            { prop: 'events', title: 'Events', defineType: 'EVENT' },
+            { prop: 'lives', title: 'Lives', defineType: 'LIVE' },
+            { prop: 'scopes', title: 'Scopes', defineType: 'SCOPE' },
+            { prop: 'params', title: 'Params', defineType: 'PARAM' },
+            { prop: 'accesses', title: 'Accesses', defineType: 'ACCESS' }
+          ];
+
+          // Process each type of table-level object
+          for (const { prop, title, defineType } of tableObjectTypes) {
+            const objectMap = tableInfo[prop as keyof SurrealTableSchemaInfo] as Record<string, string> | undefined;
+
+            if (objectMap && Object.keys(objectMap).length > 0) {
+              schemaLines.push("");
+              schemaLines.push(`-- ${title}`);
+
+              for (const [objectName, objectDef] of Object.entries(objectMap)) {
+                if (applyOverwrite) {
+                  // Add OVERWRITE keyword after DEFINE <TYPE>
+                  schemaLines.push(objectDef.replace(`DEFINE ${defineType}`, `DEFINE ${defineType} OVERWRITE`));
+                } else {
+                  schemaLines.push(objectDef);
+                }
               }
-
-              if (field.optional) {
-                fieldDef += " OPTIONAL";
-              }
-
-              schemaLines.push(`${fieldDef};`);
             }
           }
         }

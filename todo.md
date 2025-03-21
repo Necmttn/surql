@@ -82,3 +82,43 @@
 - [x] Added specific handling for references in field object processing
 - [ ] Check if array handling is consistent between file and DB processing
 - [ ] Verify entity type conversion for edge cases
+
+## Schema Export Format Consistency
+
+### Problem Description
+
+- [x] Schema exports have different formats between SurrealDB's export and our
+      schema.overwrite.surql
+- [x] Key differences include:
+  - [x] Our exports add `OVERWRITE` keyword to all definitions when using the
+        overwrite option
+  - [x] Need to ensure both formats can be properly parsed and type-generated
+
+### Implementation Tasks
+
+- [x] Create tests to ensure schema parsing works with both export formats
+- [x] Verify type generation consistency between different schema formats
+- [x] Enhance `exportSchemaFromDB` function to preserve original database schema
+      format
+- [x] Create a schema converter script to convert between different schema
+      formats
+- [x] Simplify the export-schema command to preserve the database's original
+      schema settings
+
+### Testing Tasks
+
+- [x] Create fixture files with different schema formats for testing
+- [x] Add test cases to schema_export_test.ts for handling different table types
+- [x] Test schema application to database with different formats
+- [x] Add test for TYPE ANY SCHEMALESS with OVERWRITE to verify compatibility
+
+### Notes
+
+- [x] Discovered that SurrealDB databases can have different table types and
+      schema modes
+- [x] Simplified export-schema functionality to preserve the original schema
+      structure from the database
+- [x] All schema formats produce the same type definitions despite their
+      differences
+- [x] Removed unnecessary options that tried to force specific table types and
+      schema modes

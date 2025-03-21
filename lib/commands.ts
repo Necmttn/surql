@@ -272,15 +272,24 @@ export default config;
  * 
  * @param dbOptions - Database connection options from command line
  * @param outputFile - Path to the output SurrealQL file
- * @param applyOverwrite - Whether to add OVERWRITE keyword to definitions
+ * @param options - Export options (applyOverwrite) or boolean for backward compatibility
  * @param configPath - Optional path to the configuration file
  */
 export async function exportSchema(
   dbOptions?: Partial<DbConfig>,
   outputFile?: string,
-  applyOverwrite = false,
+  options?: { applyOverwrite?: boolean } | boolean,
   configPath?: string
 ): Promise<void> {
+  // Handle backwards compatibility with boolean applyOverwrite parameter
+  let applyOverwrite = false;
+
+  if (typeof options === "boolean") {
+    applyOverwrite = options;
+  } else if (options) {
+    applyOverwrite = options.applyOverwrite ?? false;
+  }
+
   // Load configuration
   const config = await loadConfig(configPath);
 
@@ -333,10 +342,12 @@ export async function exportSchema(
     }
 
     // Export schema from database
-    schemaSpinner.message(`Exporting schema${applyOverwrite ? ' with OVERWRITE' : ''}...`);
+    const overwriteStatus = applyOverwrite ? ' with OVERWRITE' : '';
+    schemaSpinner.message(`Exporting schema${overwriteStatus}...`);
+
     const schemaDefinitions = await exportSchemaFromDB(config, applyOverwrite);
 
-    const defaultOutput = `schema${applyOverwrite ? '.overwrite' : ''}.surql`;
+    const defaultOutput = applyOverwrite ? 'schema.overwrite.surql' : 'schema.surql';
     const targetFile = outputFile || defaultOutput;
     schemaSpinner.message(`Writing schema to ${chalk.cyan(targetFile)}`);
 
@@ -545,7 +556,12 @@ export async function handleCommand(args: string[]): Promise<void> {
         username: options.username,
         password: options.password
       };
-      await exportSchema(dbOptions, options.output, options.overwrite, options.config);
+
+      const exportOptions = {
+        applyOverwrite: options.overwrite
+      };
+
+      await exportSchema(dbOptions, options.output, exportOptions, options.config);
     });
 
   program
@@ -580,6 +596,8 @@ Examples:
   surql-gen db -u root -p root                 Generate schema with authentication
   surql-gen db                                 Generate schema using URL from config file
   surql-gen process -i schema.surql -c custom-config.ts  Use custom config file
+  surql-gen export-schema --db-url http://localhost:8000  Export schema from database
+  surql-gen export-schema --overwrite          Export schema with OVERWRITE keywords
   `);
 
   try {
