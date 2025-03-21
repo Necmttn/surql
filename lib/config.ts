@@ -31,6 +31,14 @@ export const OutputConfigSchema = Type.Object({
 });
 
 /**
+ * Schema system options
+ */
+export const SchemaSystemSchema = Type.Union([
+  Type.Literal("typebox"),
+  Type.Literal("effect")
+], { default: "typebox" });
+
+/**
  * Imports configuration schema
  */
 export const ImportsConfigSchema = Type.Object({
@@ -39,10 +47,12 @@ export const ImportsConfigSchema = Type.Object({
     Type.Literal("commonjs"),
     Type.Literal("deno")
   ], { default: "esm" }),
+  schemaSystem: SchemaSystemSchema,
   paths: Type.Object({
-    typebox: Type.String({ default: "@sinclair/typebox" })
+    typebox: Type.String({ default: "@sinclair/typebox" }),
+    effect: Type.Optional(Type.String({ default: "@effect/schema" }))
   }, {
-    default: { typebox: "@sinclair/typebox" },
+    default: { typebox: "@sinclair/typebox", effect: "@effect/schema" },
     additionalProperties: false
   })
 }, {
@@ -71,8 +81,10 @@ export const DEFAULT_CONFIG = {
   },
   imports: {
     style: "esm",
+    schemaSystem: "typebox",
     paths: {
-      typebox: "@sinclair/typebox"
+      typebox: "@sinclair/typebox",
+      effect: "@effect/schema"
     }
   }
 };
@@ -82,6 +94,7 @@ export const DEFAULT_CONFIG = {
  */
 export type DbConfig = Static<typeof DbConfigSchema>;
 export type OutputConfig = Static<typeof OutputConfigSchema>;
+export type SchemaSystem = Static<typeof SchemaSystemSchema>;
 export type ImportsConfig = Static<typeof ImportsConfigSchema>;
 export type Config = Static<typeof ConfigSchema>;
 
@@ -216,20 +229,38 @@ export function getOutputPath(config: Config): string {
  * @returns The import statements as a string
  */
 export function generateImports(config: Config): string {
-  const { style, paths } = config.imports;
+  const { style, paths, schemaSystem } = config.imports;
+
+  if (schemaSystem === "effect") {
+    const effectPath = paths.effect || "@effect/schema";
+
+    if (style === "esm") {
+      return `import { Schema } from "${effectPath}";\nimport { pipe } from "effect/Function";\nimport type { RecordId } from "surrealdb";`;
+    }
+    if (style === "commonjs") {
+      return `const { Schema } = require("${effectPath}");\nconst { pipe } = require("effect/Function");\nconst { RecordId } = require("surrealdb");`;
+    }
+    if (style === "deno") {
+      return `import { Schema } from "${effectPath}";\nimport { pipe } from "effect/Function";\nimport type { RecordId } from "surrealdb";`;
+    }
+
+    // Default to ESM
+    return `import { Schema } from "${effectPath}";\nimport { pipe } from "effect/Function";\nimport type { RecordId } from "surrealdb";`;
+  }
+
+  // Default to TypeBox
+  const typeboxPath = paths.typebox || "@sinclair/typebox";
 
   if (style === "esm") {
-    return `import { Type, type Static } from "${paths.typebox}";\nimport type { RecordId } from "surrealdb";`;
+    return `import { Type, type Static } from "${typeboxPath}";\nimport type { RecordId } from "surrealdb";`;
   }
-
   if (style === "commonjs") {
-    return `const { Type } = require("${paths.typebox}");\nconst { RecordId } = require("surrealdb");`;
+    return `const { Type } = require("${typeboxPath}");\nconst { RecordId } = require("surrealdb");`;
   }
-
   if (style === "deno") {
-    return `import { Type, type Static } from "${paths.typebox}";\nimport type { RecordId } from "surrealdb";`;
+    return `import { Type, type Static } from "${typeboxPath}";\nimport type { RecordId } from "surrealdb";`;
   }
 
   // Default to ESM
-  return `import { Type, type Static } from "${paths.typebox}";\nimport type { RecordId } from "surrealdb";`;
+  return `import { Type, type Static } from "${typeboxPath}";\nimport type { RecordId } from "surrealdb";`;
 } 

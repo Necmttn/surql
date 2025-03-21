@@ -1,16 +1,61 @@
 # surql-gen
 
-Generate TypeBox schemas from SurrealQL schema definitions.
+Generate type-safe schemas from SurrealQL definitions, with support for
+automatic query type inference.
 
 ## Features
 
-- Generate [TypeBox](https://github.com/sinclairzx81/typebox) schemas from
-  SurrealQL schema definitions
+- Generate schema definitions from SurrealQL schema definitions
+  - [TypeBox](https://github.com/sinclairzx81/typebox) schemas (legacy)
+  - [Effect Schema](https://effect.website/docs/schema/introduction/)
+    (recommended)
+- **NEW**: Infer TypeScript types from SurrealQL queries
 - Support for various SurrealDB data types, including references, arrays, and
   records
 - Generate TypeScript type definitions from SurrealDB schemas
 - Support for recursive schemas (self-referencing tables)
 - Preserve default values and field comments in generated types
+
+## What's New: Effect Schema & Query Type Inference
+
+We're migrating from TypeBox to Effect Schema, which offers several advantages:
+
+- **Stronger Type Safety**: Better handling of branded types for record IDs
+- **Rich Transformations**: Powerful transformation capabilities for complex
+  data conversions
+- **Improved Validation**: More expressive validation rules with composable
+  filters
+- **Type Inference for Queries**: Automatically infer return types from
+  SurrealQL queries
+
+### Query Type Inference Example
+
+```typescript
+import { Schema } from "@effect/schema";
+import { inferQueryReturnType, SchemaRegistry } from "@necmttn/surql-gen";
+
+// Create a schema registry from your database tables
+const registry = new SchemaRegistry(tables);
+
+// Infer the return type from a SurrealQL query
+const query = "SELECT *, author.* FROM post WHERE id = $id";
+const schema = inferQueryReturnType(query, registry);
+
+// Schema is now an Effect Schema representing:
+// Array<{
+//   id: RecordId<"post">,
+//   title: string,
+//   content: string,
+//   author: {
+//     id: RecordId<"user">,
+//     name: string,
+//     // ... other user fields
+//   }
+// }>
+
+// You can use this for runtime validation or static type inference
+type QueryResult = Schema.Type<typeof schema>;
+```
 
 ## Usage
 
@@ -34,7 +79,47 @@ surql-gen process -i schema.surql
 
 ## Examples
 
-### Basic Schema
+### Generating Effect Schema (Recommended)
+
+To generate Effect Schema instead of TypeBox, set the `schemaSystem` option to
+`"effect"` in your configuration:
+
+```typescript
+// surql-gen.config.ts
+export const config = {
+  // ... other config
+  imports: {
+    style: "esm",
+    schemaSystem: "effect", // Use Effect Schema instead of TypeBox
+    paths: {
+      typebox: "@sinclair/typebox",
+      effect: "@effect/schema",
+    },
+  },
+};
+```
+
+The tool will then generate Effect Schema definitions:
+
+```typescript
+// Type for representing a RecordId in Effect Schema
+type RecordId<T extends string = string> = string & {
+  readonly RecordId: unique symbol;
+  readonly Table: T;
+};
+
+// Type declaration for User
+export const UserSchema = Schema.struct({
+  username: Schema.string,
+  email: Schema.string,
+  created_at: Schema.Date,
+});
+
+// Type export
+export type User = Schema.Type<typeof UserSchema>;
+```
+
+### Basic Schema (Legacy TypeBox)
 
 Given a SurrealQL schema like this:
 
@@ -74,67 +159,26 @@ DEFINE FIELD title ON post TYPE string;
 DEFINE FIELD author ON post TYPE record<user> COMMENT "The author of the post";
 ```
 
-The tool will generate proper types with references:
+The tool will generate proper types with references (shown in Effect Schema):
 
 ```typescript
 // Type declaration for User
-export const UserType = Type.Object({
-  username: Type.String(),
-}, {
-  $id: "user",
+export const UserSchema = Schema.struct({
+  username: Schema.string,
 });
 
 // Type declaration for Post
-export const PostType = Type.Object({
-  title: Type.String(),
-  author: RecordIdType("user", { description: "The author of the post" }),
-}, {
-  $id: "post",
+export const PostSchema = Schema.struct({
+  title: Schema.string,
+  author: recordId("user").pipe(Schema.description("The author of the post")),
 });
 
 // Type exports
-export type User = Static<typeof User>;
-export type Post = Static<typeof Post>;
+export type User = Schema.Type<typeof UserSchema>;
+export type Post = Schema.Type<typeof PostSchema>;
 ```
 
-### Schema with Comments and Default Values
-
-If your schema includes comments and default values:
-
-```sql
-DEFINE TABLE user SCHEMAFULL;
-DEFINE FIELD username ON user TYPE string COMMENT "The user's unique name";
-DEFINE FIELD active ON user TYPE bool DEFAULT true COMMENT "Whether the user is active";
-```
-
-The tool will preserve these in the generated types:
-
-```typescript
-// Type declaration for User
-export const UserType = Type.Object({
-  username: Type.String({ description: "The user's unique name" }),
-  active: Type.Boolean({
-    description: "Whether the user is active",
-    default: true,
-  }),
-}, {
-  $id: "user",
-});
-
-// Type export
-export type User = Static<typeof User>;
-```
-
-## Usage
-
-You can use the tool directly without installation using `deno run`:
-
-```bash
-# From JSR (Deno's package registry)
-deno run -A jsr:@necmttn/surql-gen process -i schema.surql -o types.ts
-```
-
-### Quick Start
+## Quick Start
 
 ```bash
 # Initialize a TypeScript config file (recommended)
@@ -162,14 +206,14 @@ deno run -A jsr:@necmttn/surql-gen
 ### Command Line Options
 
 ```
-surql-gen - Generate TypeBox schemas from SurrealQL
+surql-gen - Generate type-safe schemas from SurrealQL
 
 USAGE:
   surql-gen [command] [options]
 
 Commands:
-  process       Process a SurrealQL file and generate TypeBox schemas
-  db            Generate TypeBox schemas from SurrealDB instance
+  process       Process a SurrealQL file and generate schemas
+  db            Generate schemas from SurrealDB instance
   init          Initialize a new config file
   migrate       Migrate from JSON config to TypeScript config
   help [cmd]    Display help for [cmd]
@@ -227,8 +271,10 @@ export const config: Config = {
   },
   imports: {
     style: "esm",
+    schemaSystem: "effect", // Use "effect" for Effect Schema, "typebox" for TypeBox
     paths: {
       typebox: "@sinclair/typebox",
+      effect: "@effect/schema",
     },
   },
   db: {
@@ -249,222 +295,76 @@ Using TypeScript for configuration provides:
 - IntelliSense/autocompletion in compatible editors
 - Ability to use comments and documentation
 
-### JSON Configuration
+### Note About TypeBox Support
 
-Alternatively, you can use a JSON configuration file named `surql-gen.json`:
+TypeBox support is considered legacy and will be deprecated in future versions.
+We recommend migrating to Effect Schema which offers better type safety and more
+advanced features, including query type inference.
 
-```json
-{
-  "output": {
-    "path": "./generated",
-    "filename": "schema",
-    "extension": "ts"
-  },
-  "imports": {
-    "style": "esm",
-    "paths": {
-      "typebox": "@sinclair/typebox"
-    }
-  },
-  "db": {
-    "url": "http://localhost:8000",
-    "username": "root",
-    "password": "root",
-    "namespace": "my_namespace",
-    "database": "my_database"
-  }
-}
+## Query Type Inference (Experimental)
+
+This feature is currently in development and available for testing. It allows
+you to infer TypeScript types directly from SurrealQL queries:
+
+```typescript
+import { inferQueryReturnType, SchemaRegistry } from "@necmttn/surql-gen";
+
+// Create a registry with your table definitions
+const registry = new SchemaRegistry(tables);
+
+// Example queries
+const query1 = "SELECT * FROM user";
+const query2 = "SELECT name, email FROM user";
+const query3 = "SELECT *, author.* FROM post";
+const query4 = "SELECT * FROM user LIMIT 1"; // Returns single object, not array
+
+// Infer types from queries
+const schema1 = inferQueryReturnType(query1, registry);
+const schema2 = inferQueryReturnType(query2, registry);
+const schema3 = inferQueryReturnType(query3, registry);
+const schema4 = inferQueryReturnType(query4, registry);
+
+// Use the schemas for type inference and runtime validation
+type Query1Result = Schema.Type<typeof schema1>; // Array<User>
+type Query2Result = Schema.Type<typeof schema2>; // Array<{ name: string, email: string }>
+type Query3Result = Schema.Type<typeof schema3>; // Array<Post with nested author>
+type Query4Result = Schema.Type<typeof schema4>; // User (not Array)
 ```
 
-## Features
+## Installation with npm
 
-- Generate TypeBox schemas from SurrealQL schema definitions
-- Support for all SurrealQL data types
-- Handles relations between tables
-- Configurable import styles (ESM, CommonJS, Deno)
-- Customizable output paths and filenames
-- Fetch schema directly from running SurrealDB instance
-
-## Fetching Schema from SurrealDB
-
-Instead of defining your schema in a .surql file, you can connect directly to a
-running SurrealDB instance and generate TypeBox schemas from the existing
-database schema.
+To install with npm, run:
 
 ```bash
-# Using command line (explicit URL)
-surql-gen db -d http://localhost:8000 -o types.ts
-
-# Using URL from config file
-surql-gen db -o types.ts
-
-# With authentication and namespace/database specification
-surql-gen db -d http://localhost:8000 -u root -p root -n my_namespace --database my_database
-
-# Using configuration file with a custom config path
-surql-gen db -c custom-config.json
+npm install @necmttn/surql-gen
 ```
 
-The tool will:
-
-1. Connect to the SurrealDB instance
-2. Authenticate using the provided credentials
-3. Execute an `INFO FOR DB` query to retrieve schema information
-4. Generate TypeBox schemas based on the retrieved schema
-5. Write the output to the specified file
-
-This is particularly useful when:
-
-- You have an existing database with schema already defined
-- You want to keep your TypeScript types in sync with the actual database schema
-- You're working with a database that's maintained by another team
-
-## Examples
-
-### Basic Example
-
-Input: `schema.surql`
-
-```sql
-DEFINE TABLE user SCHEMAFULL;
-DEFINE FIELD username ON user TYPE string;
-DEFINE FIELD email ON user TYPE string;
-
-DEFINE TABLE post SCHEMAFULL;
-DEFINE FIELD title ON post TYPE string;
-DEFINE FIELD content ON post TYPE string;
-DEFINE FIELD author ON post TYPE record<user>;
-```
-
-Output: `types.ts`
+Then import and use:
 
 ```typescript
-import { type Static, Type } from "@sinclair/typebox";
-import type { RecordId } from "surrealdb";
+import { generateEffectSchemas, parseSurQL } from "@necmttn/surql-gen";
 
-// Type for representing a RecordId in TypeBox
-const RecordIdType = <T extends string>(table: T) => Type.Unsafe<RecordId<T>>();
+// Parse SurrealQL schema
+const tables = parseSurQL(schemaContent);
 
-// Type declaration for User
-export const UserType = Type.Object({
-  id: RecordIdType("user"),
-  username: Type.String(),
-  email: Type.String(),
-}, {
-  $id: "user",
-});
-
-// Type declaration for Post
-export const PostType = Type.Object({
-  id: RecordIdType("post"),
-  title: Type.String(),
-  content: Type.String(),
-  author: RecordIdType("user"),
-}, {
-  $id: "post",
-});
-
-const Module = Type.Module({
-  user: UserType,
-  post: PostType,
-});
-
-const User = Module.Import("user");
-export type User = Static<typeof User>;
-const Post = Module.Import("post");
-export type Post = Static<typeof Post>;
+// Generate Effect Schema
+const schemas = generateEffectSchemas(tables);
 ```
 
-## Schema Type Handling
+## Project Status
 
-### Reference Fields
+The project is actively under development. Key focus areas:
 
-Both file-based schema extraction and database schema extraction handle
-reference fields:
+1. Completing the Effect Schema integration
+2. Enhancing the query type inference system
+3. Creating a query builder API with static type safety
 
-- `references<table_name>` fields are properly converted to array types with the
-  referenced table's type
-- `record<table_name>` fields are handled as direct references
-- `option<record<table_name>>` fields are handled as optional references
-
-Example in SurrealQL:
-
-```sql
-DEFINE FIELD messages ON telegram_user TYPE references<telegram_message>;
-DEFINE FIELD creator_id ON telegram_thread TYPE option<record<telegram_user>> REFERENCE;
-```
-
-Generated TypeScript:
-
-```typescript
-export const TelegramUserType = Type.Object({
-  // ...
-  messages: Type.Array(RecordIdType("telegram_message")),
-  // ...
-});
-
-export const TelegramThreadType = Type.Object({
-  // ...
-  creator_id: Type.Optional(RecordIdType("telegram_user")),
-  // ...
-});
-```
-
-## Troubleshooting
-
-### Differences Between File and DB Schema Generation
-
-If you notice differences between schemas generated from a SurrealQL file and
-schemas generated directly from a database connection, ensure:
-
-1. Your SurrealQL file has been fully applied to the database
-2. You're using a recent version of surql-gen that correctly handles references
-   types
-3. The database namespace and database name match the ones used when applying
-   the schema
-
-Common issues include:
-
-#### References Fields Not Typed Correctly
-
-In older versions, `references<table_name>` fields might be incorrectly handled
-when fetching schema from a database. Make sure you're using surql-gen version
-0.3.0 or later which includes fixes for references field handling.
-
-Example of correct output for references fields:
-
-```typescript
-// In schema types
-messages: Type.Array(RecordIdType('telegram_message')),
-```
-
-#### Schema File Path Confusion
-
-By default, both approaches use the path specified in your config file:
-
-```typescript
-// In surql-gen.config.ts
-export const config: Config = {
-  output: {
-    path: "./generated", // Directory path
-    filename: "schema", // Base filename (without extension)
-    extension: "ts", // File extension
-  },
-  // ...
-};
-```
-
-To use a different output path for a specific command, use the `-o/--output`
-flag:
-
-```bash
-deno run -A mod.ts db -o ./my-custom-path.ts
-deno run -A mod.ts process -i schema.surql -o ./another-path.ts
-```
+See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for details on current progress and
+roadmap.
 
 ## License
 
-MIT License. See [LICENSE](./LICENSE) for details.
+MIT
 
 ## Migrating from JSON to TypeScript Configuration
 

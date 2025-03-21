@@ -7,13 +7,14 @@ import chalk from "chalk";
 
 import { loadConfig, getOutputPath, generateImports, CONFIG_FILENAME_JSON, CONFIG_FILENAME_TS, type Config, type DbConfig } from "./config.ts";
 import { parseSurQL, generateTypeBoxSchemas, validateReferences } from "./schema.ts";
+import { generateEffectSchemas } from "./effect-schema.ts";
 import { fetchSchemaFromDB, checkDBConnection, exportSchemaFromDB, applySchemaToDatabase } from "./db.ts";
 
 // Expose the loadConfigFromFile function from config.ts
 import { loadConfigFromFile } from "./config.ts";
 
 /**
- * Process a SurrealQL file and generate TypeBox schemas
+ * Process a SurrealQL file and generate schemas
  *
  * @param inputFile - Path to the input SurrealQL file
  * @param outputFile - Path to the output TypeScript file
@@ -39,13 +40,24 @@ export async function processFile(inputFile: string, outputFile?: string, config
 
     // Generate schemas with proper recursive type handling and imports
     const imports = generateImports(config);
-    const typeboxSchemas = generateTypeBoxSchemas(tables);
+
+    // Choose schema generator based on configuration
+    let schemaOutput: string;
+    if (config.imports.schemaSystem === "effect") {
+      loadingSpinner.message("Generating Effect Schema...");
+      schemaOutput = generateEffectSchemas(tables);
+    } else {
+      loadingSpinner.message("Generating TypeBox Schema...");
+      schemaOutput = generateTypeBoxSchemas(tables);
+    }
 
     // Combine custom imports with schema output
-    const output = typeboxSchemas.replace(
-      "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";",
-      imports
-    );
+    let importPlaceholder = "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";";
+    if (config.imports.schemaSystem === "effect") {
+      importPlaceholder = "import { Schema } from \"@effect/schema\";\nimport { pipe } from \"effect/Function\";\nimport type { RecordId } from \"surrealdb\";";
+    }
+
+    const output = schemaOutput.replace(importPlaceholder, imports);
 
     // Determine output path
     const targetFile = outputFile || getOutputPath(config);
@@ -67,7 +79,7 @@ export async function processFile(inputFile: string, outputFile?: string, config
 }
 
 /**
- * Generate TypeBox schemas from SurrealDB instance
+ * Generate schemas from SurrealDB instance
  * 
  * @param dbOptions - Database connection options from command line
  * @param outputFile - Path to the output TypeScript file
@@ -139,13 +151,24 @@ export async function processDB(dbOptions?: Partial<DbConfig>, outputFile?: stri
 
     // Generate schemas with proper recursive type handling and imports
     const imports = generateImports(config);
-    const typeboxSchemas = generateTypeBoxSchemas(tables);
+
+    // Choose schema generator based on configuration
+    let schemaOutput: string;
+    if (config.imports.schemaSystem === "effect") {
+      dbSpinner.message("Generating Effect Schema...");
+      schemaOutput = generateEffectSchemas(tables);
+    } else {
+      dbSpinner.message("Generating TypeBox Schema...");
+      schemaOutput = generateTypeBoxSchemas(tables);
+    }
 
     // Combine custom imports with schema output
-    const output = typeboxSchemas.replace(
-      "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";",
-      imports
-    );
+    let importPlaceholder = "import { Type, type Static } from \"@sinclair/typebox\";\nimport type { RecordId } from \"surrealdb\";";
+    if (config.imports.schemaSystem === "effect") {
+      importPlaceholder = "import { Schema } from \"@effect/schema\";\nimport { pipe } from \"effect/Function\";\nimport type { RecordId } from \"surrealdb\";";
+    }
+
+    const output = schemaOutput.replace(importPlaceholder, imports);
 
     // Determine output path
     const targetFile = outputFile || getOutputPath(config);
