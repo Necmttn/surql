@@ -22,8 +22,8 @@ export const config: Config = {
     "url": "http://localhost:8000",
     "username": "root",
     "password": "root",
-    "namespace": "test",
-    "database": "telegram"
+    "namespace": "root",
+    "database": "root"
   }
 };
 
