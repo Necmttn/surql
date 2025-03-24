@@ -2,7 +2,7 @@ import { ensureDir, exists } from "@std/fs";
 import { dirname } from "@std/path";
 
 import { Command } from "commander";
-import { intro, log, spinner } from "@clack/prompts";
+import { log, spinner } from "@clack/prompts";
 import chalk from "chalk";
 
 import { loadConfig, getOutputPath, generateImports, CONFIG_FILENAME_JSON, CONFIG_FILENAME_TS, type Config, type DbConfig } from "./config.ts";
@@ -224,7 +224,7 @@ export async function initConfig(configPath?: string, useTypeScript = true): Pro
     // Write configuration file
     if (useTypeScript) {
       const targetPath = configPath || CONFIG_FILENAME_TS;
-      const tsConfig = `import type { Config } from "@necmttn/surql-gen";
+      const tsConfig = `import type { Config } from "@necmttn/surql";
 
 /**
  * surql-gen configuration
@@ -281,7 +281,7 @@ export async function migrateConfig(jsonConfigPath?: string, tsConfigPath?: stri
     const config = await loadConfigFromFile(jsonPath);
 
     // Create the TypeScript config
-    const tsConfig = `import type { Config } from "./lib/config.ts";
+    const tsConfig = `import type { Config } from "@necmttn/surql";
 
 /**
  * surql-gen configuration
@@ -628,17 +628,17 @@ export async function handleCommand(args: string[]): Promise<void> {
   // Add examples to help
   program.addHelpText('after', `
 Examples:
-  surql-gen init                               Initialize a new TypeScript config file
-  surql-gen init --json                        Initialize a new JSON config file
-  surql-gen migrate                            Migrate from JSON config to TypeScript config
-  surql-gen process -i schema.surql -o types.ts  Process a SurrealQL file
-  surql-gen db -d http://localhost:8000 -o types.ts  Generate schema from database
-  surql-gen db -n my_namespace --database my_database  Generate schema with namespace and database name
-  surql-gen db -u root -p root                 Generate schema with authentication
-  surql-gen db                                 Generate schema using URL from config file
-  surql-gen process -i schema.surql -c custom-config.ts  Use custom config file
-  surql-gen export-schema --db-url http://localhost:8000  Export schema from database
-  surql-gen export-schema --overwrite          Export schema with OVERWRITE keywords
+  surql init                               Initialize a new TypeScript config file
+  surql init --json                        Initialize a new JSON config file
+  surql migrate                            Migrate from JSON config to TypeScript config
+  surql process -i schema.surql -o types.ts  Process a SurrealQL file
+  surql db -d http://localhost:8000 -o types.ts  Generate schema from database
+  surql db -n my_namespace --database my_database  Generate schema with namespace and database name
+  surql db -u root -p root                 Generate schema with authentication
+  surql db                                 Generate schema using URL from config file
+  surql process -i schema.surql -c custom-config.ts  Use custom config file
+  surql export-schema --db-url http://localhost:8000  Export schema from database
+  surql export-schema --overwrite          Export schema with OVERWRITE keywords
   `);
 
   try {

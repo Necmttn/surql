@@ -1,5 +1,5 @@
 /**
- * @necmttn/surql-gen - TypeBox schema generator for SurrealDB
+ * @necmttn/surql - Effect Schema generator for SurrealDB
  * 
  * This is the main module that exports all public functionality.
  */

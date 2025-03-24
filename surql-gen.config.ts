@@ -1,4 +1,4 @@
-import type { Config } from "@necmttn/surql-gen";
+import type { Config } from "@necmttn/surql";
 
 /**
  * surql-gen configuration

@@ -32,7 +32,7 @@ We're migrating from TypeBox to Effect Schema, which offers several advantages:
 
 ```typescript
 import { Schema } from "@effect/schema";
-import { inferQueryReturnType, SchemaRegistry } from "@necmttn/surql-gen";
+import { inferQueryReturnType, SchemaRegistry } from "@necmttn/surql";
 
 // Create a schema registry from your database tables
 const registry = new SchemaRegistry(tables);
@@ -182,25 +182,25 @@ export type Post = Schema.Type<typeof PostSchema>;
 
 ```bash
 # Initialize a TypeScript config file (recommended)
-deno run -A jsr:@necmttn/surql-gen init
+deno run -A jsr:@necmttn/surql init
 
 # Initialize a JSON config file if preferred
-deno run -A jsr:@necmttn/surql-gen init --json
+deno run -A jsr:@necmttn/surql init --json
 
 # Generate schemas from a SurrealQL file
-deno run -A jsr:@necmttn/surql-gen process -i schema.surql -o types.ts
+deno run -A jsr:@necmttn/surql process -i schema.surql -o types.ts
 
 # Generate schemas directly from a SurrealDB instance
-deno run -A jsr:@necmttn/surql-gen db -d http://localhost:8000 -o types.ts
+deno run -A jsr:@necmttn/surql db -d http://localhost:8000 -o types.ts
 
 # Run with config file that has a db.url defined in it
-deno run -A jsr:@necmttn/surql-gen db
+deno run -A jsr:@necmttn/surql db
 
 # Generate schemas with authentication and specific namespace/database
-deno run -A jsr:@necmttn/surql-gen db -d http://localhost:8000 -u root -p root -n my_namespace --database my_database
+deno run -A jsr:@necmttn/surql db -d http://localhost:8000 -u root -p root -n my_namespace --database my_database
 
 # Run with a config file (auto-detects surql-gen.config.ts or surql-gen.json in current directory)
-deno run -A jsr:@necmttn/surql-gen
+deno run -A jsr:@necmttn/surql
 ```
 
 ### Command Line Options
@@ -261,7 +261,7 @@ file.
 Create a `surql-gen.config.ts` file in your project:
 
 ```typescript
-import type { Config } from "jsr:@necmttn/surql-gen/lib/config.ts";
+import type { Config } from "jsr:@necmttn/surql/lib/config.ts";
 
 export const config: Config = {
   output: {
@@ -307,7 +307,7 @@ This feature is currently in development and available for testing. It allows
 you to infer TypeScript types directly from SurrealQL queries:
 
 ```typescript
-import { inferQueryReturnType, SchemaRegistry } from "@necmttn/surql-gen";
+import { inferQueryReturnType, SchemaRegistry } from "@necmttn/surql";
 
 // Create a registry with your table definitions
 const registry = new SchemaRegistry(tables);
@@ -336,13 +336,13 @@ type Query4Result = Schema.Type<typeof schema4>; // User (not Array)
 To install with npm, run:
 
 ```bash
-npm install @necmttn/surql-gen
+npm install @necmttn/surql
 ```
 
 Then import and use:
 
 ```typescript
-import { generateEffectSchemas, parseSurQL } from "@necmttn/surql-gen";
+import { generateEffectSchemas, parseSurQL } from "@necmttn/surql";
 
 // Parse SurrealQL schema
 const tables = parseSurQL(schemaContent);
@@ -374,10 +374,10 @@ TypeScript for better type checking and editor support, you can use the
 
 ```bash
 # Migrate from surql-gen.json to surql-gen.config.ts
-deno run -A jsr:@necmttn/surql-gen migrate
+deno run -A jsr:@necmttn/surql migrate
 
 # Migrate from a custom JSON config file
-deno run -A jsr:@necmttn/surql-gen migrate --json-config custom-config.json
+deno run -A jsr:@necmttn/surql migrate --json-config custom-config.json
 ```
 
 This will create a new TypeScript configuration file based on your existing JSON
