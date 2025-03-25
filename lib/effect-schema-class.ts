@@ -10,21 +10,21 @@
 // Effect Schema Class API integration for SurrealDB types
 import { Schema } from "effect";
 import type { TableDefinition } from "./schema.ts";
-
-// Brand for RecordId type
-type RecordId<T extends string = string> = string & {
-  readonly RecordId: unique symbol;
-  readonly Table: T;
-};
+import { RecordId, StringRecordId } from "surrealdb";
 
 /**
  * Create a RecordId schema for a specific table
  */
-function recordId<T extends string>(tableName: T): Schema.Schema<RecordId<T>> {
-  return Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/),
-    Schema.brand(`RecordId<${tableName}>`),
-  ) as unknown as Schema.Schema<RecordId<T>>;
+function recordId<T extends string>(tableName: T) {
+  return Schema.Union(
+    Schema.TemplateLiteral(Schema.Literal(tableName), Schema.Literal(":"), Schema.String),
+    Schema.declare<RecordId<T>>(
+      (input: unknown): input is RecordId<T> => input instanceof RecordId,
+    ),
+    Schema.declare<StringRecordId>(
+      (input: unknown): input is StringRecordId => input instanceof StringRecordId,
+    ),
+  );
 }
 
 /**
@@ -49,21 +49,21 @@ export function generateEffectSchemas(tables: TableDefinition[]): string {
  */
 
 import { Schema } from "effect";
-
-// Type for representing a RecordId in Effect Schema
-type RecordId<T extends string = string> = string & {
-  readonly RecordId: unique symbol;
-  readonly Table: T;
-};
+import { RecordId, StringRecordId } from "surrealdb";
 
 /**
  * Create a RecordId schema for a specific table
  */
-function recordId<T extends string>(tableName: T): Schema.Schema<RecordId<T>> {
-  return Schema.String.pipe(
-    Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/),
-    Schema.brand(\`RecordId<\${tableName}>\`),
-  ) as unknown as Schema.Schema<RecordId<T>>;
+function recordId<T extends string>(tableName: T) {
+  return Schema.Union(
+    Schema.TemplateLiteral(Schema.Literal(tableName), Schema.Literal(":"), Schema.String),
+    Schema.declare<RecordId<T>>(
+      (input: unknown): input is RecordId<T> => input instanceof RecordId,
+    ),
+    Schema.declare<StringRecordId>(
+      (input: unknown): input is StringRecordId => input instanceof StringRecordId,
+    ),
+  );
 }
 `;
 
@@ -71,7 +71,6 @@ function recordId<T extends string>(tableName: T): Schema.Schema<RecordId<T>> {
   const tableClasses = tables.map((table) => {
     const { name, fields, description } = table;
     const className = formatClassName(name);
-    const needsRecursive = name === "telegram_message";
 
     // Check if table already has an 'id' field
     const hasIdField = fields.some(field => field.name === 'id');
