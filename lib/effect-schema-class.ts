@@ -48,6 +48,7 @@ export function generateEffectSchemas(tables: TableDefinition[]): string {
  * Date: ${new Date().toISOString()}
  */
 
+// Effect Schema Class API integration for SurrealDB types
 import { Schema } from "effect";
 import { RecordId, StringRecordId } from "surrealdb";
 
@@ -56,10 +57,10 @@ import { RecordId, StringRecordId } from "surrealdb";
  */
 function recordId<T extends string>(tableName: T) {
   return Schema.Union(
-    Schema.TemplateLiteral(Schema.Literal(tableName), Schema.Literal(":"), Schema.String),
     Schema.declare<RecordId<T>>(
       (input: unknown): input is RecordId<T> => input instanceof RecordId,
     ),
+    Schema.TemplateLiteral(Schema.Literal(tableName), Schema.Literal(":"), Schema.String),
     Schema.declare<StringRecordId>(
       (input: unknown): input is StringRecordId => input instanceof StringRecordId,
     ),
@@ -154,7 +155,8 @@ function recordId<T extends string>(tableName: T) {
           break;
         case "array_record":
           if (field.reference) {
-            effectType = `Schema.Array(recordId("${field.reference.table}"))${annotationsStr}`;
+            const refTableClassName = formatClassName(field.reference.table);
+            effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend(() => ${refTableClassName})))${annotationsStr}`;
           } else {
             effectType = `Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/)))${annotationsStr}`;
           }
@@ -164,19 +166,16 @@ function recordId<T extends string>(tableName: T) {
           break;
         case "record":
           if (field.reference) {
-            // For self-referential fields, we need to handle the record ID format
-            if (field.name === "reply_to_message_id" && field.reference.table === "telegram_message") {
-              effectType = `recordId("telegram_message")${annotationsStr}`;
-            } else {
-              effectType = `recordId("${field.reference.table}")${annotationsStr}`;
-            }
+            const refTableClassName = formatClassName(field.reference.table);
+            effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend(() => ${refTableClassName}))${annotationsStr}`;
           } else {
             effectType = `Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:⟨\\d+⟩$/))${annotationsStr}`;
           }
           break;
         case "references":
           if (field.reference) {
-            effectType = `Schema.Array(recordId("${field.reference.table}"))${annotationsStr}`;
+            const refTableClassName = formatClassName(field.reference.table);
+            effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend(() => ${refTableClassName})))${annotationsStr}`;
           } else {
             effectType = `Schema.Array(Schema.String)${annotationsStr}`;
           }
