@@ -170,7 +170,7 @@ function recordId<T extends string>(tableName: T) {
 								const refTableClassName = formatClassName(
 									field.reference.table,
 								);
-								effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend(() => ${refTableClassName})))${annotationsStr}`;
+								effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
 							} else {
 								effectType = `Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/)))${annotationsStr}`;
 							}
@@ -183,7 +183,7 @@ function recordId<T extends string>(tableName: T) {
 								const refTableClassName = formatClassName(
 									field.reference.table,
 								);
-								effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend(() => ${refTableClassName}))${annotationsStr}`;
+								effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName}))${annotationsStr}`;
 							} else {
 								effectType = `Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:⟨\\d+⟩$/))${annotationsStr}`;
 							}
@@ -193,7 +193,7 @@ function recordId<T extends string>(tableName: T) {
 								const refTableClassName = formatClassName(
 									field.reference.table,
 								);
-								effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend(() => ${refTableClassName})))${annotationsStr}`;
+								effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
 							} else {
 								effectType = `Schema.Array(Schema.String)${annotationsStr}`;
 							}
