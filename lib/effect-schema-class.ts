@@ -157,7 +157,7 @@ function recordId<T extends string>(tableName: T) {
 							effectType = `Schema.Boolean${annotationsStr}`;
 							break;
 						case "datetime":
-							effectType = `Schema.Date${annotationsStr}`;
+							effectType = `Schema.DateFromSelf${annotationsStr}`;
 							break;
 						case "array":
 							effectType = `Schema.Array(Schema.String)${annotationsStr}`;
