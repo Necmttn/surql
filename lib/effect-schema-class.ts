@@ -68,7 +68,7 @@ export const stringRecordIdSchema = Schema.declare<StringRecordId>(
 	(input: unknown): input is StringRecordId =>
 		input instanceof StringRecordId,
 );
-export const recordIdSchema = (tableName: T) =>
+export const recordIdSchema = <T extends string>(tableName: T) =>
 	Schema.declare<RecordId<T>>(
 		(input: unknown): input is RecordId<T> => input instanceof RecordId,
 	);
