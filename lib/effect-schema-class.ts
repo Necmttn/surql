@@ -78,7 +78,7 @@ import { RecordId, StringRecordId } from "surrealdb";
 /**
  * Create a RecordId schema for a specific table
  */
-function recordId<T extends string>(tableName: T) {
+export function recordId<T extends string>(tableName: T) {
 	const stringRecordIdSchema = Schema.declare<StringRecordId>(
 		(input: unknown): input is StringRecordId =>
 			input instanceof StringRecordId,
