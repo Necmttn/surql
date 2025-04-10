@@ -64,19 +64,20 @@ import { Schema } from "effect";
 import { Model } from "@effect/sql";
 import { RecordId, StringRecordId } from "surrealdb";
 
+export const stringRecordIdSchema = Schema.declare<StringRecordId>(
+	(input: unknown): input is StringRecordId =>
+		input instanceof StringRecordId,
+);
+export const recordIdSchema = (tableName: T) =>
+	Schema.declare<RecordId<T>>(
+		(input: unknown): input is RecordId<T> => input instanceof RecordId,
+	);
+
 /**
  * Create a RecordId schema for a specific table
  */
 export function recordId<T extends string>(tableName: T) {
-	const stringRecordIdSchema = Schema.declare<StringRecordId>(
-		(input: unknown): input is StringRecordId =>
-			input instanceof StringRecordId,
-	);
 
-	const recordIdSchema = (tableName: T) =>
-		Schema.declare<RecordId<T>>(
-			(input: unknown): input is RecordId<T> => input instanceof RecordId,
-		);
 	return Schema.Union(
 		recordIdSchema(tableName),
 		Schema.transform(
@@ -237,7 +238,7 @@ export function recordId<T extends string>(tableName: T) {
 								);
 								effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
 							} else {
-								effectType = `Schema.Array(Schema.String)${annotationsStr}`;
+								effectType = `Schema.Array(stringRecordIdSchema)${annotationsStr}`;
 							}
 							break;
 						default:
