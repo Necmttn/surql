@@ -1,6 +1,6 @@
 {
   "name": "@necmttn/surql",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "SurrealDB schema generator for Effect Schema",
   "exports": "./mod.ts",
   "tasks": {

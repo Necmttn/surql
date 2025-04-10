@@ -17,19 +17,35 @@ import { RecordId, StringRecordId } from "surrealdb";
  * Create a RecordId schema for a specific table
  */
 function recordId<T extends string>(tableName: T) {
-	return Schema.Union(
-		Schema.TemplateLiteral(
-			Schema.Literal(tableName),
-			Schema.Literal(":"),
-			Schema.String,
-		),
+	const stringRecordIdSchema = Schema.declare<StringRecordId>(
+		(input: unknown): input is StringRecordId =>
+			input instanceof StringRecordId,
+	);
+
+	const recordIdSchema = (tableName: T) =>
 		Schema.declare<RecordId<T>>(
 			(input: unknown): input is RecordId<T> => input instanceof RecordId,
+		);
+	return Schema.Union(
+		recordIdSchema(tableName),
+		Schema.transform(
+			Schema.TemplateLiteral(
+				Schema.Literal(tableName),
+				Schema.Literal(":"),
+				Schema.String,
+			),
+			stringRecordIdSchema,
+			{
+				strict: true,
+				decode: (fromA: `${T}:${string}`, fromI: `${T}:${string}`) => {
+					return new StringRecordId(fromI);
+				},
+				encode: (toI: StringRecordId, toA: StringRecordId) => {
+					return toA.toString() as `${T}:${string}`;
+				},
+			},
 		),
-		Schema.declare<StringRecordId>(
-			(input: unknown): input is StringRecordId =>
-				input instanceof StringRecordId,
-		),
+		stringRecordIdSchema,
 	);
 }
 
@@ -63,14 +79,35 @@ import { RecordId, StringRecordId } from "surrealdb";
  * Create a RecordId schema for a specific table
  */
 function recordId<T extends string>(tableName: T) {
-	return Schema.Union(
+	const stringRecordIdSchema = Schema.declare<StringRecordId>(
+		(input: unknown): input is StringRecordId =>
+			input instanceof StringRecordId,
+	);
+
+	const recordIdSchema = (tableName: T) =>
 		Schema.declare<RecordId<T>>(
 			(input: unknown): input is RecordId<T> => input instanceof RecordId,
+		);
+	return Schema.Union(
+		recordIdSchema(tableName),
+		Schema.transform(
+			Schema.TemplateLiteral(
+				Schema.Literal(tableName),
+				Schema.Literal(":"),
+				Schema.String,
+			),
+			stringRecordIdSchema,
+			{
+				strict: true,
+				decode: (fromA: \`\${T}:\${string}\`, fromI: \`\${T}:\${string}\`) => {
+					return new StringRecordId(fromI);
+				},
+				encode: (toI: StringRecordId, toA: StringRecordId) => {
+					return toA.toString() as \`\${T}:\${string}\`;
+				},
+			},
 		),
-		Schema.TemplateLiteral(Schema.Literal(tableName), Schema.Literal(":"), Schema.String),
-		Schema.declare<StringRecordId>(
-			(input: unknown): input is StringRecordId => input instanceof StringRecordId,
-		),
+		stringRecordIdSchema,
 	);
 }
 `;
