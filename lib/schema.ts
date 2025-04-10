@@ -1,20 +1,22 @@
+export interface FieldDefinition {
+	name: string;
+	type: string;
+	optional: boolean;
+	description?: string;
+	defaultValue?: string;
+	reference?: {
+		table: string;
+		isOption: boolean;
+	};
+}
+
 /**
  * Represents a table definition from SurrealDB schema
  */
 export interface TableDefinition {
 	name: string;
 	description?: string;
-	fields: Array<{
-		name: string;
-		type: string;
-		optional: boolean;
-		description?: string;
-		defaultValue?: string;
-		reference?: {
-			table: string;
-			isOption: boolean;
-		};
-	}>;
+	fields: Array<FieldDefinition>;
 }
 
 /**

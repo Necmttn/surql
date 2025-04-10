@@ -1,7 +1,7 @@
 // This module will handle connecting to SurrealDB and fetching schema
 
 import type { Config } from "./config.ts";
-import type { TableDefinition } from "./schema.ts";
+import type { FieldDefinition, TableDefinition } from "./schema.ts";
 // Direct import from surrealdb instead of dynamic import
 import { Surreal } from "surrealdb";
 
@@ -170,12 +170,22 @@ function parseFieldDefinition(fieldDef: string): {
 	// Simplify array types for consistency with mod.ts processing
 	if (type.startsWith("array<")) {
 		console.log(`Found array field: ${type}`);
+		// Extract the inner type from array<type>
+		const innerTypeMatch = type.match(/array<(.+?)>?$/);
+		const innerType = innerTypeMatch ? innerTypeMatch[1] : "string";
+
+		// Recursively parse the inner type
+		const innerTypeInfo = parseFieldDefinition(
+			`DEFINE FIELD _ ON _ TYPE ${innerType}`,
+		);
+
 		return {
-			type: "array",
+			type: `array<${innerTypeInfo.type}>`,
 			kind: "array",
 			optional: isOptional,
 			description,
 			defaultValue,
+			referencedTable: innerTypeInfo.referencedTable,
 		};
 	}
 
@@ -354,7 +364,7 @@ export async function fetchSchemaFromDB(
 				continue;
 			}
 
-			const fields = [];
+			const fields: FieldDefinition[] = [];
 
 			// Safely process fields
 			for (const fieldName of Object.keys(tableInfo.fields)) {
