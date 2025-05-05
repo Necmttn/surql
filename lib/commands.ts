@@ -153,6 +153,7 @@ export async function processDB(
 		Deno.exit(1);
 	}
 
+
 	try {
 		const dbSpinner = spinner();
 		dbSpinner.start(`Connecting to SurrealDB at ${chalk.cyan(config.db.url)}`);
@@ -169,15 +170,6 @@ export async function processDB(
 			dbSpinner.message(`Connection details: ${connectionDetails.join(", ")}`);
 		}
 
-		// Check database connection
-		const isConnected = await checkDBConnection(config.db.url);
-		if (!isConnected) {
-			dbSpinner.stop(
-				`Failed to connect to SurrealDB at ${chalk.red(config.db.url)}`,
-			);
-			log.error("Database connection failed");
-			Deno.exit(1);
-		}
 
 		// Fetch schema from database
 		dbSpinner.message("Fetching schema from database...");
@@ -194,6 +186,7 @@ export async function processDB(
 		// Generate schemas with proper recursive type handling and imports
 		const imports = generateImports(config);
 
+		// return;
 		// Choose schema generator based on configuration
 		dbSpinner.message("Generating Effect Schema...");
 		const schemaOutput = generateEffectSchemas(tables);

@@ -9,11 +9,34 @@ function recordId<T extends string>(tableName: T) {
 	const stringRecordIdSchema = Schema.declare<StringRecordId>(
 		(input: unknown): input is StringRecordId =>
 			input instanceof StringRecordId,
+		{
+			identifier: `StringRecordId<${tableName}>`,
+			description: `A record ID for the ${tableName} table`,
+			validation: (value: unknown) => {
+				if (typeof value === "string" && value.startsWith(`${tableName}:`)) {
+					return { value: new StringRecordId(value) }
+				}
+				return { error: `Expected a record ID for table ${tableName} (format: "${tableName}:id")` }
+			}
+		}
 	);
 
 	const recordIdSchema = (tableName: T) =>
 		Schema.declare<RecordId<T>>(
 			(input: unknown): input is RecordId<T> => input instanceof RecordId,
+			{
+				identifier: `RecordId<${tableName}>`,
+				description: `A record ID for the ${tableName} table`,
+				validation: (value: unknown) => {
+					if (typeof value === "string" && value.startsWith(`${tableName}:`)) {
+						const parts = value.split(":");
+						if (parts.length > 1) {
+							return { value: new RecordId(tableName, parts[1] as any) }
+						}
+					}
+					return { error: `Expected a record ID for table ${tableName} (format: "${tableName}:id")` }
+				}
+			}
 		);
 	return Schema.Union(
 		recordIdSchema(tableName),
@@ -111,6 +134,25 @@ export function recordId<T extends string>(tableName: T) {
 			// Check if table already has an 'id' field
 			const hasIdField = fields.some((field) => field.name === "id");
 
+			// Create a map to organize nested fields
+			const nestedFieldsMap = new Map<string, Array<{ path: string[]; field: any }>>();
+
+			// First pass: identify and group nested fields
+			fields.forEach(field => {
+				const fieldNameParts = field.name.split('.');
+				if (fieldNameParts.length > 1 && fieldNameParts[0]) {
+					// This is a nested field
+					const rootField = fieldNameParts[0];
+					if (!nestedFieldsMap.has(rootField)) {
+						nestedFieldsMap.set(rootField, []);
+					}
+					nestedFieldsMap.get(rootField)?.push({
+						path: fieldNameParts.slice(1),
+						field
+					});
+				}
+			});
+
 			// Create a list of field definitions
 			let fieldDefinitions: string[] = [];
 
@@ -119,144 +161,45 @@ export function recordId<T extends string>(tableName: T) {
 				fieldDefinitions.push(`  id: Model.Generated(recordId("${name}"))`);
 			}
 
-			// Add all other field definitions
-			fieldDefinitions = fieldDefinitions.concat(
-				fields.map((field) => {
-					let effectType: string;
-					const annotations: string[] = [];
+			// Process non-nested fields first
+			const processedFields = new Set<string>();
+			fields.forEach(field => {
+				const fieldNameParts = field.name.split('.');
+				const rootFieldName = fieldNameParts[0];
 
-					// Add description if available
-					if (field.description) {
-						const escapedDescription = field.description
-							.replace(/\\'/g, "'")
-							.replace(/'/g, "\\'");
-						annotations.push(`description: '${escapedDescription}'`);
-					}
+				if (!rootFieldName) return;
 
-					// Add default value if available
-					if (field.defaultValue) {
-						let formattedDefaultValue = field.defaultValue;
+				// If this is a nested field, skip it
+				if (field.name.includes('.')) return;
 
-						// Handle SurrealDB function calls (like time::now())
-						if (formattedDefaultValue.includes("::")) {
-							// For datetime fields with SurrealDB functions, we'll add it as a separate annotation
-							if (field.type.toLowerCase() === "datetime") {
-								annotations.push(`surrealDefault: '${formattedDefaultValue}'`);
-							} else {
-								formattedDefaultValue = `'${formattedDefaultValue}'`;
-								annotations.push(`default: ${formattedDefaultValue}`);
-							}
-						} else {
-							// If it's a simple string with quotes, keep as is
-							// If it's a boolean or number, keep as is
-							// If it's a string that's not already quoted, add quotes
-							if (
-								!formattedDefaultValue.startsWith("'") &&
-								!formattedDefaultValue.startsWith('"') &&
-								formattedDefaultValue !== "true" &&
-								formattedDefaultValue !== "false" &&
-								!/^-?\d+(\.\d+)?$/.test(formattedDefaultValue) &&
-								!formattedDefaultValue.startsWith("[") &&
-								!formattedDefaultValue.startsWith("{")
-							) {
-								formattedDefaultValue = `'${formattedDefaultValue}'`;
-							}
+				// If this is a root field that has nested fields, we'll process it separately
+				if (nestedFieldsMap.has(rootFieldName)) {
+					processedFields.add(rootFieldName);
+				}
+				// Otherwise process it as a normal field
+				else {
+					processedFields.add(field.name);
+					const fieldDef = generateFieldDefinition(field, tables);
+					fieldDefinitions.push(`  ${field.name}: ${fieldDef}`);
+				}
+			});
 
-							annotations.push(`default: ${formattedDefaultValue}`);
-						}
-					}
+			// Process nested fields
+			nestedFieldsMap.forEach((nestedFields, rootField) => {
+				// We need to find the root field definition
+				const rootFieldDef = fields.find(f => f.name === rootField) || {
+					name: rootField,
+					type: 'object',
+					optional: true
+				};
 
-					// Build annotations string
-					const annotationsStr =
-						annotations.length > 0
-							? `.annotations({ ${annotations.join(", ")} })`
-							: "";
-
-					switch (field.type.toLowerCase()) {
-						case "int":
-						case "number":
-							effectType = `Schema.Number.pipe(Schema.int())${annotationsStr}`;
-							break;
-						case "float":
-							effectType = `Schema.Number${annotationsStr}`;
-							break;
-						case "bool":
-							effectType = `Schema.Boolean${annotationsStr}`;
-							break;
-						case "datetime":
-							effectType = `Schema.DateFromSelf${annotationsStr}`;
-							break;
-						case "array":
-							effectType = `Schema.Array(Schema.Unknown)${annotationsStr}`;
-							break;
-						case "array<float>":
-						case "array<number>":
-							effectType = `Schema.Array(Schema.Number)${annotationsStr}`;
-							break;
-						case "array<int>":
-							effectType = `Schema.Array(Schema.Number.pipe(Schema.int()))${annotationsStr}`;
-							break;
-						case "array<bool>":
-							effectType = `Schema.Array(Schema.Boolean)${annotationsStr}`;
-							break;
-						case "array<datetime>":
-							effectType = `Schema.Array(Schema.DateFromSelf)${annotationsStr}`;
-							break;
-						case "array<object>":
-							effectType = `Schema.Array(Schema.Unknown)${annotationsStr}`;
-							break;
-						case "array<record>":
-							if (field.reference) {
-								const refTableClassName = formatClassName(
-									field.reference.table,
-								);
-								effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
-							} else {
-								effectType = `Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/)))${annotationsStr}`;
-							}
-							break;
-						case "array<string>":
-							effectType = `Schema.Array(Schema.String)${annotationsStr}`;
-							break;
-						case "object":
-							effectType = `Schema.Unknown${annotationsStr}`;
-							break;
-						case "record":
-							if (field.reference) {
-								const refTableClassName = formatClassName(
-									field.reference.table,
-								);
-								effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName}))${annotationsStr}`;
-							} else {
-								effectType = `Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:⟨\\d+⟩$/))${annotationsStr}`;
-							}
-							break;
-						case "references":
-							if (field.reference) {
-								const refTableClassName = formatClassName(
-									field.reference.table,
-								);
-								effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
-							} else {
-								effectType = `Schema.Array(stringRecordIdSchema)${annotationsStr}`;
-							}
-							break;
-						default:
-							effectType = `Schema.String${annotationsStr}`;
-							break;
-					}
-
-					// Make optional if needed
-					if (field.type.toLowerCase() !== "datetime" && field.optional) {
-						effectType = `Schema.optional(${effectType})`;
-					}
-
-					return `  ${field.name}: ${effectType}`;
-				}),
-			);
+				// Create the nested schema structure
+				const nestedSchema = generateNestedSchema(rootFieldDef, nestedFields, tables);
+				fieldDefinitions.push(`  ${rootField}: ${nestedSchema}`);
+			});
 
 			const tableDescription = description
-				? `\n/**\n * ${description.replace(/'/g, "\\'")}\n */`
+				? `\n/**\n * ${(description || '').replace(/'/g, "\\'")}\n */`
 				: "";
 
 			return `${tableDescription}
@@ -269,4 +212,241 @@ ${fieldDefinitions.join(",\n")}
 		.join("\n");
 
 	return `${imports}\n${tableClasses}`;
+}
+
+/**
+ * Generate a nested schema structure for nested fields
+ */
+function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string[]; field: any }>, tables: TableDefinition[]): string {
+	// Build a tree-like structure of the nested fields
+	const fieldTree: Record<string, any> = {};
+
+	nestedFields.forEach(({ path, field }) => {
+		let current = fieldTree;
+		for (let i = 0; i < path.length; i++) {
+			const segment = path[i];
+			if (!segment) continue;
+
+			if (i === path.length - 1) {
+				// Leaf node - store the field definition
+				const leafField = { ...field };
+				leafField.name = segment;
+				current[segment] = leafField;
+			} else {
+				// Internal node - create or get the subtree
+				if (!current[segment]) {
+					current[segment] = {};
+				}
+				current = current[segment];
+			}
+		}
+	});
+
+	// Generate Schema.struct() for the nested structure
+	function buildSchemaStruct(tree: Record<string, any>): string {
+		const fields: string[] = [];
+
+		for (const key in tree) {
+			if (!key) continue;
+
+			if (typeof tree[key] === 'object') {
+				if (!tree[key].type) {
+					// This is a nested structure
+					fields.push(`    ${key}: ${buildSchemaStruct(tree[key])}`);
+				} else {
+					// This is a field definition
+					const fieldDef = generateFieldDefinition(tree[key], tables);
+					fields.push(`    ${key}: ${fieldDef}`);
+				}
+			}
+		}
+
+		return `Schema.Struct({\n${fields.join(',\n')}\n  })`;
+	}
+
+	// Generate the base schema
+	let baseSchema = buildSchemaStruct(fieldTree);
+
+	// Apply annotations if available
+	const annotations: string[] = [];
+
+	if (rootField.description) {
+		const escapedDescription = (rootField.description || '')
+			.replace(/\\'/g, "'")
+			.replace(/'/g, "\\'");
+		annotations.push(`description: '${escapedDescription}'`);
+	}
+
+	// Add default value if available
+	if (rootField.defaultValue) {
+		let formattedDefaultValue = rootField.defaultValue || '';
+
+		if (formattedDefaultValue.includes("::")) {
+			annotations.push(`surrealDefault: '${formattedDefaultValue}'`);
+		} else {
+			if (
+				!formattedDefaultValue.startsWith("'") &&
+				!formattedDefaultValue.startsWith('"') &&
+				formattedDefaultValue !== "true" &&
+				formattedDefaultValue !== "false" &&
+				!/^-?\d+(\.\d+)?$/.test(formattedDefaultValue) &&
+				!formattedDefaultValue.startsWith("[") &&
+				!formattedDefaultValue.startsWith("{")
+			) {
+				formattedDefaultValue = `'${formattedDefaultValue}'`;
+			}
+
+			annotations.push(`default: ${formattedDefaultValue}`);
+		}
+	}
+
+	const annotationsStr = annotations.length > 0
+		? `.annotations({ ${annotations.join(", ")} })`
+		: "";
+
+	// Apply optional if needed
+	let schema = `${baseSchema}${annotationsStr}`;
+
+	if (rootField.optional) {
+		schema = `Schema.optional(${schema})`;
+	}
+
+	return schema;
+}
+
+/**
+ * Generate a field definition for a given field
+ */
+function generateFieldDefinition(field: any, tables: TableDefinition[]): string {
+	const annotations: string[] = [];
+
+	// Add description if available
+	if (field.description) {
+		const escapedDescription = (field.description || '')
+			.replace(/\\'/g, "'")
+			.replace(/'/g, "\\'");
+		annotations.push(`description: '${escapedDescription}'`);
+	}
+
+	// Add default value if available
+	if (field.defaultValue) {
+		let formattedDefaultValue = field.defaultValue || '';
+
+		// Handle SurrealDB function calls (like time::now())
+		if (formattedDefaultValue.includes("::")) {
+			// For datetime fields with SurrealDB functions, we'll add it as a separate annotation
+			if (field.type && field.type.toLowerCase() === "datetime") {
+				annotations.push(`surrealDefault: '${formattedDefaultValue}'`);
+			} else {
+				formattedDefaultValue = `'${formattedDefaultValue}'`;
+				annotations.push(`default: ${formattedDefaultValue}`);
+			}
+		} else {
+			// If it's a simple string with quotes, keep as is
+			// If it's a boolean or number, keep as is
+			// If it's a string that's not already quoted, add quotes
+			if (
+				!formattedDefaultValue.startsWith("'") &&
+				!formattedDefaultValue.startsWith('"') &&
+				formattedDefaultValue !== "true" &&
+				formattedDefaultValue !== "false" &&
+				!/^-?\d+(\.\d+)?$/.test(formattedDefaultValue) &&
+				!formattedDefaultValue.startsWith("[") &&
+				!formattedDefaultValue.startsWith("{")
+			) {
+				formattedDefaultValue = `'${formattedDefaultValue}'`;
+			}
+
+			annotations.push(`default: ${formattedDefaultValue}`);
+		}
+	}
+
+	// Build annotations string
+	const annotationsStr = annotations.length > 0
+		? `.annotations({ ${annotations.join(", ")} })`
+		: "";
+
+	let effectType: string;
+	const fieldType = field.type ? field.type.toLowerCase() : 'string';
+
+	switch (fieldType) {
+		case "int":
+		case "number":
+			effectType = `Schema.Number.pipe(Schema.int())${annotationsStr}`;
+			break;
+		case "float":
+			effectType = `Schema.Number${annotationsStr}`;
+			break;
+		case "bool":
+			effectType = `Schema.Boolean${annotationsStr}`;
+			break;
+		case "datetime":
+			effectType = `Schema.DateFromSelf${annotationsStr}`;
+			break;
+		case "array":
+			effectType = `Schema.Array(Schema.Unknown)${annotationsStr}`;
+			break;
+		case "array<float>":
+		case "array<number>":
+			effectType = `Schema.Array(Schema.Number)${annotationsStr}`;
+			break;
+		case "array<int>":
+			effectType = `Schema.Array(Schema.Number.pipe(Schema.int()))${annotationsStr}`;
+			break;
+		case "array<bool>":
+			effectType = `Schema.Array(Schema.Boolean)${annotationsStr}`;
+			break;
+		case "array<datetime>":
+			effectType = `Schema.Array(Schema.DateFromSelf)${annotationsStr}`;
+			break;
+		case "array<object>":
+			effectType = `Schema.Array(Schema.Unknown)${annotationsStr}`;
+			break;
+		case "array<record>":
+			if (field.reference && field.reference.table) {
+				const refTableClassName = formatClassName(
+					field.reference.table
+				);
+				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
+			} else {
+				effectType = `Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/)))${annotationsStr}`;
+			}
+			break;
+		case "array<string>":
+			effectType = `Schema.Array(Schema.String)${annotationsStr}`;
+			break;
+		case "object":
+			effectType = `Schema.Unknown${annotationsStr}`;
+			break;
+		case "record":
+			if (field.reference && field.reference.table) {
+				const refTableClassName = formatClassName(
+					field.reference.table
+				);
+				effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName}))${annotationsStr}`;
+			} else {
+				effectType = `Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:⟨\\d+⟩$/))${annotationsStr}`;
+			}
+			break;
+		case "references":
+			if (field.reference && field.reference.table) {
+				const refTableClassName = formatClassName(
+					field.reference.table
+				);
+				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
+			} else {
+				effectType = `Schema.Array(stringRecordIdSchema)${annotationsStr}`;
+			}
+			break;
+		default:
+			effectType = `Schema.String${annotationsStr}`;
+			break;
+	}
+
+	// Make optional if needed
+	if (fieldType !== "datetime" && field.optional) {
+		effectType = `Schema.optional(${effectType})`;
+	}
+
+	return effectType;
 }

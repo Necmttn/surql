@@ -98,7 +98,6 @@ export function parseFieldDefinition(fieldDef: string): ParsedFieldDefinition {
 
   // Simplify array types for consistency with mod.ts processing
   if (type.startsWith('array<')) {
-    console.log(`Found array field: ${type}`);
     return {
       type: 'array',
       kind: 'array',

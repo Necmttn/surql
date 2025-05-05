@@ -1,218 +1,85 @@
 # @necmttn/surql
 
-Generate type-safe schemas from SurrealQL definitions, with support for
-automatic query type inference.
+Generate type-safe schemas from SurrealQL definitions, with support for automatic query type inference.
 
-## Examples
+## Installation
 
-### Effect Schema Class
+### Using npm/pnpm (Node.js)
 
-```typescript
-// Generated schema using Effect Schema Class
-import { Schema } from "effect";
-
-// Create a schema registry from your database tables
-const registry = new SchemaRegistry(tables);
-
-// Using the generated schemas
-const user = new User({
-  id: "user:123",
-  name: "John Doe",
-  email: "john@example.com",
-});
-
-// Schema classes with table information
-export class User extends Schema.Class<User>("User")({
-  id: recordId("user").annotations({
-    description: "Unique identifier",
-  }),
-  name: Schema.String,
-  email: Schema.String,
-  created_at: Schema.Date,
-}) {
-  static readonly tableName = "user" as const;
-}
+```bash
+pnpm add @necmttn/surql
 ```
 
-### Query Type Inference
+### Using JSR (Deno)
+
+The library is available on the JavaScript Registry (JSR) for Deno:
 
 ```typescript
-import { Schema } from "effect";
-import { inferQueryReturnType, SchemaRegistry } from "@necmttn/surql";
-
-// Create a schema registry from your database tables
-const registry = new SchemaRegistry(tables);
-
-// Infer the return type from a SurrealQL query
-const query = "SELECT *, author.* FROM post WHERE id = $id";
-const schema = inferQueryReturnType(query, registry);
-
-// Schema is now an Effect Schema representing:
-// Array<{
-//   id: RecordId<"post">,
-//   title: string,
-//   content: string,
-//   author: {
-//     id: RecordId<"user">,
-//     name: string,
-//     // ... other user fields
-//   }
-// }>
-
-// You can use this for runtime validation or static type inference
-type QueryResult = Schema.Type<typeof schema>;
+import { generateSchemas } from "jsr:@necmttn/surql";
 ```
 
-### Schema with References
+## Command Line Usage (JSR)
 
-If your schema includes relationships between tables:
+```bash
+# Export schema from a SurrealDB instance to a file
+deno run -A jsr:@necmttn/surql export-schema --overwrite --db-url http://localhost:8000
+
+# Generate TypeScript models from a SurrealDB instance
+deno run -A jsr:@necmttn/surql db --db-url http://localhost:8000
+
+# Process a schema file
+deno run -A jsr:@necmttn/surql process -i schema.overwrite.surql -o schema.ts
+
+# With version specification
+deno run -A jsr:@necmttn/surql@1.0.0 export-schema --db-url http://localhost:8000
+```
+
+## Generated Schema Examples
+
+### From SurrealQL to TypeScript
+
+The library transforms SurrealQL definitions like this:
 
 ```sql
-DEFINE TABLE user SCHEMAFULL;
-DEFINE FIELD username ON user TYPE string;
-
-DEFINE TABLE post SCHEMAFULL;
-DEFINE FIELD title ON post TYPE string;
-DEFINE FIELD author ON post TYPE record<user> COMMENT "The author of the post";
+DEFINE TABLE OVERWRITE message TYPE NORMAL SCHEMAFULL;
+DEFINE FIELD OVERWRITE content ON message TYPE string;
+DEFINE FIELD OVERWRITE chat ON message TYPE record<chat> REFERENCE ON DELETE CASCADE;
+DEFINE FIELD OVERWRITE createdAt ON message TYPE datetime DEFAULT time::now();
 ```
 
-The tool will generate proper types with references using Effect Schema Class:
+Into type-safe Effect Model classes:
 
 ```typescript
-export class User extends Schema.Class<User>("User")({
-  id: recordId("user").annotations({
-    description: "Unique identifier",
-  }),
-  username: Schema.String,
+export class Message extends Model.Class<Message>("Message")({
+  id: Model.Generated(recordId("message")),
+  content: Schema.String,
+  chat: Schema.Union(recordId("chat"), Schema.suspend((): Schema.Schema<Chat> => Chat)),
+  createdAt: Schema.DateFromSelf.annotations({ surrealDefault: 'time::now()' })
 }) {
-  static readonly tableName = "user" as const;
-}
-
-export class Post extends Schema.Class<Post>("Post")({
-  id: recordId("post").annotations({
-    description: "Unique identifier",
-  }),
-  title: Schema.String,
-  author: recordId("user").annotations({
-    description: "The author of the post",
-  }),
-}) {
-  static readonly tableName = "post" as const;
+  static readonly tableName = "message" as const;
 }
 ```
 
-## Features
-
-- Generate schema definitions from SurrealQL schema definitions using Effect
-  Schema Class
-- Infer TypeScript types from SurrealQL queries
-- Support for various SurrealDB data types, including references, arrays, and
-  records
-- Generate TypeScript type definitions from SurrealDB schemas
-- Support for recursive schemas (self-referencing tables)
-- Preserve default values and field comments in generated types
-
-## Quick Start
-
-```bash
-# Initialize a TypeScript config file (recommended)
-deno run -A jsr:@necmttn/surql init
-
-# Initialize a JSON config file if preferred
-deno run -A jsr:@necmttn/surql init --json
-
-# Generate schemas from a SurrealQL file
-deno run -A jsr:@necmttn/surql process -i schema.surql -o types.ts
-
-# Generate schemas directly from a SurrealDB instance
-deno run -A jsr:@necmttn/surql db -d http://localhost:8000 -o types.ts
-
-# Run with config file that has a db.url defined in it
-deno run -A jsr:@necmttn/surql db
-
-# Generate schemas with authentication and specific namespace/database
-deno run -A jsr:@necmttn/surql db -d http://localhost:8000 -u root -p root -n my_namespace --database my_database
-
-# Run with a config file (auto-detects surql-gen.config.ts or surql-gen.json in current directory)
-deno run -A jsr:@necmttn/surql
-```
-
-## Installation with npm
-
-To install with npm, run:
-
-```bash
-npm install @necmttn/surql
-```
-
-Then import and use:
+## Using Generated Models
 
 ```typescript
-import { generateEffectSchemas, parseSurQL } from "@necmttn/surql";
+import { Message } from "./generated/schema";
+import { recordId } from "@necmttn/surql";
 
-// Parse SurrealQL schema
-const tables = parseSurQL(schemaContent);
+// Create a new message with type checking
+const message = new Message({
+  content: "Hello world",
+  chat: recordId("chat")("chat:abc123"),
+  createdAt: new Date()
+});
 
-// Generate Effect Schema
-const schemas = generateEffectSchemas(tables);
+// Perform database operations
+const result = await db.create(message);
 ```
-
-## Command Line Options
-
-```
-@necmttn/surql - Generate type-safe schemas from SurrealQL
-
-USAGE:
-  surql [command] [options]
-
-Commands:
-  process       Process a SurrealQL file and generate schemas
-  db            Generate schemas from SurrealDB instance
-  init          Initialize a new config file
-  migrate       Migrate from JSON config to TypeScript config
-  help [cmd]    Display help for [cmd]
-
-Options:
-  -h, --help     Display help
-  -V, --version  Display version
-
-Examples:
-  surql init                               Initialize a new TypeScript config file
-  surql init --json                        Initialize a new JSON config file
-  surql migrate                            Migrate from JSON config to TypeScript config
-  surql process -i schema.surql -o types.ts  Process a SurrealQL file
-  surql db -d http://localhost:8000 -o types.ts  Generate schema from database
-  surql db -n my_namespace --database my_database  Generate schema with namespace and database name
-  surql db -u root -p root                 Generate schema with authentication
-  surql db                                 Generate schema using URL from config file
-  surql process -i schema.surql -c custom-config.ts  Use custom config file
-```
-
-### DB Command Options
-
-The `db` command has several options to control the database connection:
-
-```
-Options:
-  -d, --db-url <url>       SurrealDB URL to fetch schema from (overrides config)
-  -u, --username <user>    Username for authentication (overrides config)
-  -p, --password <pass>    Password for authentication (overrides config)
-  -n, --namespace <ns>     Namespace to use (overrides config)
-  --database <db>          Database to use (overrides config)
-  -o, --output <file>      Output TypeScript file (default: based on config)
-  -c, --config <file>      Path to config file
-```
-
-Any options provided via command line will override those in the config file.
 
 ## Configuration
 
-You can configure @necmttn/surql using either a TypeScript or JSON configuration
-file.
-
-### TypeScript Configuration (Recommended)
-
-Create a `surql.config.ts` file in your project:
+Create a `surql-gen.config.ts` file:
 
 ```typescript
 import type { Config } from "@necmttn/surql/lib/config.ts";
@@ -225,85 +92,27 @@ export const config: Config = {
   },
   imports: {
     style: "esm",
-    schemaSystem: "effect", // Using Effect Schema as the default schema system
-    paths: {
-      effect: "effect",
-    },
+    schemaSystem: "effect",
   },
   db: {
     url: "http://localhost:8000",
-    username: "root",
-    password: "root",
-    namespace: "my_namespace",
-    database: "my_database",
+    namespace: "test",
+    database: "test",
   },
 };
 
 export default config;
 ```
 
-Using TypeScript for configuration provides:
+## Automation with CLI
 
-- Type checking for configuration options
-- IntelliSense/autocompletion in compatible editors
-- Ability to use comments and documentation
+For automated schema export and model generation, add to your build scripts:
 
-## Schema Export and Apply
-
-@necmttn/surql also provides functionality to export and apply SurrealDB
-schemas.
-
-### Exporting Schema Definitions
-
-You can export the schema definitions from a database using the `export-schema`
-command:
-
-```bash
-deno run -A @necmttn/surql export-schema --db-url http://localhost:8000 --namespace test --database mydb
+```json
+"scripts": {
+  "generate:schema": "deno run -A jsr:@necmttn/surql export-schema --overwrite --db-url http://localhost:8000 && deno run -A jsr:@necmttn/surql db --db-url http://localhost:8000"
+}
 ```
-
-By default, this will generate a file called `schema.surql` in the current
-directory, containing all the `DEFINE TABLE` and `DEFINE FIELD` statements from
-the database.
-
-#### Options
-
-- `--db-url`: SurrealDB URL (e.g., http://localhost:8000)
-- `--namespace`: SurrealDB namespace
-- `--database`: SurrealDB database name
-- `--username`: SurrealDB username
-- `--password`: SurrealDB password
-- `--output`: Output file path (default: schema.surql)
-- `--overwrite`: Add OVERWRITE keyword to all definitions (default: false)
-- `--config`: Path to configuration file
-
-### Applying Schema Definitions
-
-You can apply schema definitions to a database using the `apply-schema` command:
-
-```bash
-deno run -A @necmttn/surql apply-schema schema.surql --db-url http://localhost:8000 --namespace test --database mydb
-```
-
-This will execute all the schema definitions in the specified file against the
-target database.
-
-#### Options
-
-- `--db-url`: SurrealDB URL (e.g., http://localhost:8000)
-- `--namespace`: SurrealDB namespace
-- `--database`: SurrealDB database name
-- `--username`: SurrealDB username
-- `--password`: SurrealDB password
-- `--config`: Path to configuration file
-
-## Project Status
-
-The project is actively under development. Key focus areas:
-
-1. Enhancing the Effect Schema Class integration
-2. Improving the query type inference system
-3. Creating a query builder API with static type safety
 
 ## License
 

@@ -14,16 +14,13 @@ export const config: Config = {
   },
   "imports": {
     "style": "esm",
-    "paths": {
-      "typebox": "@sinclair/typebox"
-    }
   },
   "db": {
     "url": "http://localhost:8000",
     "username": "root",
-    "password": "root",
-    "namespace": "root",
-    "database": "root"
+    "password": "gT5WviULF58y2zPHsDNA0Jil8f6K9sJA",
+    "namespace": "test",
+    "database": "test"
   }
 };
 

@@ -5,6 +5,7 @@ import type { FieldDefinition, TableDefinition } from "./schema.ts";
 // Direct import from surrealdb instead of dynamic import
 import { Surreal } from "surrealdb";
 
+import { log, spinner } from "@clack/prompts";
 /**
  * Schema information retrieved from SurrealDB info endpoints
  */
@@ -60,7 +61,7 @@ function parseFieldDefinition(fieldDef: string): {
 	// Extract the actual type from the field definition
 	const typeMatch = fieldDef.match(/TYPE\s+(\S+)/i);
 	if (!typeMatch) {
-		console.log(`No type found in field definition: ${fieldDef}`);
+		log.warning(`No type found in field definition: ${fieldDef}`);
 		return {
 			type: "string",
 			kind: "scalar",
@@ -69,7 +70,6 @@ function parseFieldDefinition(fieldDef: string): {
 	}
 
 	const fieldType = typeMatch[1]; // This is the actual type like 'references<telegram_message>'
-	console.log(`Extracted type: ${fieldType} from definition: ${fieldDef}`);
 
 	// Default values
 	let type = fieldType.toLowerCase();
@@ -103,9 +103,6 @@ function parseFieldDefinition(fieldDef: string): {
 		if (innerType.startsWith("references<")) {
 			const matchRef = innerType.match(/references<([^>]+)>/);
 			referencedTable = matchRef ? matchRef[1] : undefined;
-			console.log(
-				`Found optional references field: ${innerType} -> ${referencedTable}`,
-			);
 			return {
 				type: "references",
 				kind: "relation",
@@ -120,9 +117,6 @@ function parseFieldDefinition(fieldDef: string): {
 		if (innerType.startsWith("record<")) {
 			const matchRecord = innerType.match(/record<([^>]+)>/);
 			referencedTable = matchRecord ? matchRecord[1] : undefined;
-			console.log(
-				`Found optional record field: ${innerType} -> ${referencedTable}`,
-			);
 			return {
 				type: "record",
 				kind: "relation",
@@ -141,7 +135,6 @@ function parseFieldDefinition(fieldDef: string): {
 	if (type.startsWith("references<")) {
 		const matchRef = type.match(/references<([^>]+)>/);
 		referencedTable = matchRef ? matchRef[1] : undefined;
-		console.log(`Found references field: ${type} -> ${referencedTable}`);
 		return {
 			type: "references",
 			kind: "relation",
@@ -156,7 +149,6 @@ function parseFieldDefinition(fieldDef: string): {
 	if (type.startsWith("record<")) {
 		const matchRecord = type.match(/record<([^>]+)>/);
 		referencedTable = matchRecord ? matchRecord[1] : undefined;
-		console.log(`Found record field: ${type} -> ${referencedTable}`);
 		return {
 			type: "record",
 			kind: "relation",
@@ -169,7 +161,6 @@ function parseFieldDefinition(fieldDef: string): {
 
 	// Simplify array types for consistency with mod.ts processing
 	if (type.startsWith("array<")) {
-		console.log(`Found array field: ${type}`);
 		// Extract the inner type from array<type>
 		const innerTypeMatch = type.match(/array<(.+?)>?$/);
 		const innerType = innerTypeMatch ? innerTypeMatch[1] : "string";
@@ -293,12 +284,16 @@ export async function fetchSchemaFromDB(
 		throw new Error("Database URL is required in configuration");
 	}
 
-	console.log("Fetching schema from database:", config.db.url);
+	const dbSpinner = spinner();
+	dbSpinner.start("Fetching schema from database");
+	dbSpinner.message(`Fetching schema from database: ${config.db.url}`);
+	dbSpinner.message(`Using username: ${config.db.username}`);
+	dbSpinner.message(`Using password: ${config.db.password}`);
 	if (config.db.namespace) {
-		console.log("Using namespace:", config.db.namespace);
+		dbSpinner.message(`Using namespace: ${config.db.namespace}`);
 	}
 	if (config.db.database) {
-		console.log("Using database:", config.db.database);
+		dbSpinner.message(`Using database: ${config.db.database}`);
 	}
 
 	let db: Surreal | undefined;
@@ -307,34 +302,38 @@ export async function fetchSchemaFromDB(
 		db = new Surreal();
 
 		// Connect to the SurrealDB instance
-		await db.connect(config.db.url);
+		await db.connect(config.db.url, {
+			namespace: config.db.namespace,
+			database: config.db.database,
+			auth: {
+				username: config.db.username!,
+				password: config.db.password!,
+			},
+		});
 
-		// Sign in with credentials if provided
-		if (config.db.username && config.db.password) {
-			await db.signin({
-				username: config.db.username,
-				password: config.db.password,
+		dbSpinner.message("Connected to SurrealDB");
+
+		const [root] = await db.query<[{ namespaces: Record<string, string> }]>("INFO FOR ROOT");
+		if (!Object.keys(root.namespaces).includes(config.db.namespace!)) {
+			throw new Error(`Namespace [${config.db.namespace}] not found in root \n Available namespaces: ${JSON.stringify(root.namespaces, null, 2)}`, {
 			});
 		}
 
-		// Use the specified namespace and database if provided
-		if (config.db.namespace && config.db.database) {
-			await db.use({
-				namespace: config.db.namespace,
-				database: config.db.database,
+		const [namespace] = await db.query<[{ databases: Record<string, string> }]>("INFO FOR NAMESPACE;");
+
+		if (!Object.keys(namespace.databases).includes(config.db.database!)) {
+			throw new Error(`Database [${config.db.database}] not found in namespace [${config.db.namespace}] \n Available databases: ${JSON.stringify(namespace.databases, null, 2)}`, {
 			});
 		}
 
 		// Fetch schema information using INFO command
 		const infoResult = await db.query("INFO FOR DB;");
-		console.log("Database INFO result:", JSON.stringify(infoResult, null, 2));
 
 		if (!infoResult || !infoResult[0]) {
 			throw new Error("Failed to retrieve schema information from SurrealDB");
 		}
 
 		const schemaInfo = normalizeSchemaInfo(infoResult[0]);
-		console.log("Normalized schema info:", JSON.stringify(schemaInfo, null, 2));
 
 		if (!schemaInfo.tables || Object.keys(schemaInfo.tables).length === 0) {
 			throw new Error("No tables found in schema information");
@@ -343,24 +342,26 @@ export async function fetchSchemaFromDB(
 		// Convert the schema information to TableDefinition[]
 		const tables: TableDefinition[] = [];
 
+
+		dbSpinner.stop("Schema fetched from database");
+
+
 		// Safely process tables with defensive programming to handle potential null/undefined values
 		for (const tableName of Object.keys(schemaInfo.tables)) {
+			const tableSpinner = spinner();
 			// Skip any table definitions that look like system tables
 			if (tableName.startsWith("_") || tableName.startsWith("sdb_")) {
 				continue;
 			}
 
-			const tableInfoResult = await db.query<[SurrealTableSchemaInfo]>(
+			tableSpinner.message(`Processing table [${tableName}]`);
+
+			const [tableInfo] = await db.query<[SurrealTableSchemaInfo]>(
 				`INFO FOR TABLE ${tableName};`,
 			);
-			console.log(
-				`Table ${tableName} INFO result:`,
-				JSON.stringify(tableInfoResult, null, 2),
-			);
-			const tableInfo = tableInfoResult?.[0];
 
 			if (!tableInfo || !tableInfo.fields) {
-				console.warn(`Table ${tableName} has no fields, skipping`);
+				console.warn(`Table [${tableName}] has no fields, skipping`);
 				continue;
 			}
 
@@ -385,14 +386,8 @@ export async function fetchSchemaFromDB(
 				// Handle both object and string field definitions
 				if (typeof fieldInfo === "string") {
 					// Parse the string definition
-					console.log(
-						`Processing field ${fieldName} with definition: ${fieldInfo}`,
-					);
+					tableSpinner.message(`Processing field [${tableName}.${fieldName}]`);
 					const parsed = parseFieldDefinition(fieldInfo);
-					console.log(
-						`Parsed field ${fieldName}: type=${parsed.type}, optional=${parsed.optional}, referencedTable=${parsed.referencedTable}`,
-					);
-
 					// Use the parsed referencedTable from parseFieldDefinition
 					fields.push({
 						name: fieldName,
@@ -402,9 +397,9 @@ export async function fetchSchemaFromDB(
 						defaultValue: parsed.defaultValue,
 						reference: parsed.referencedTable
 							? {
-									table: parsed.referencedTable,
-									isOption: parsed.optional,
-								}
+								table: parsed.referencedTable,
+								isOption: parsed.optional,
+							}
 							: undefined,
 					});
 				} else if (typeof fieldInfo === "object") {
@@ -436,18 +431,11 @@ export async function fetchSchemaFromDB(
 						}
 					}
 
-					console.log(
-						`Processing object field ${fieldName} with type: ${fieldType}`,
-					);
-
 					// Check if it's a references field
 					if (
 						typeof fieldType === "string" &&
 						fieldType.startsWith("references<")
 					) {
-						console.log(
-							`Found references type for field ${fieldName}: ${fieldType}`,
-						);
 						// Extract the referenced table name
 						const match = fieldType.match(/references<([^>]+)>/);
 						const referencedTable = match ? match[1] : undefined;
@@ -460,9 +448,9 @@ export async function fetchSchemaFromDB(
 							defaultValue,
 							reference: referencedTable
 								? {
-										table: referencedTable,
-										isOption: isOptional,
-									}
+									table: referencedTable,
+									isOption: isOptional,
+								}
 								: undefined,
 						});
 						continue;
@@ -488,11 +476,11 @@ export async function fetchSchemaFromDB(
 						reference:
 							referencedTable || fieldKind === "relation"
 								? {
-										table: referencedTable || "",
-										isOption:
-											typeof fieldType === "string" &&
-											fieldType.startsWith("option<"),
-									}
+									table: referencedTable || "",
+									isOption:
+										typeof fieldType === "string" &&
+										fieldType.startsWith("option<"),
+								}
 								: undefined,
 					});
 				} else {
@@ -604,9 +592,9 @@ export function parseSchemaFromInfoResponses(
 					defaultValue: parsed.defaultValue,
 					reference: parsed.referencedTable
 						? {
-								table: parsed.referencedTable,
-								isOption: parsed.optional,
-							}
+							table: parsed.referencedTable,
+							isOption: parsed.optional,
+						}
 						: undefined,
 				});
 			} else if (typeof fieldInfo === "object") {
@@ -662,9 +650,9 @@ export function parseSchemaFromInfoResponses(
 						defaultValue,
 						reference: referencedTable
 							? {
-									table: referencedTable,
-									isOption: isOptional,
-								}
+								table: referencedTable,
+								isOption: isOptional,
+							}
 							: undefined,
 					});
 					continue;
@@ -690,11 +678,11 @@ export function parseSchemaFromInfoResponses(
 					reference:
 						referencedTable || fieldKind === "relation"
 							? {
-									table: referencedTable || "",
-									isOption:
-										typeof fieldType === "string" &&
-										fieldType.startsWith("option<"),
-								}
+								table: referencedTable || "",
+								isOption:
+									typeof fieldType === "string" &&
+									fieldType.startsWith("option<"),
+							}
 							: undefined,
 				});
 			}
@@ -929,7 +917,7 @@ export async function exportSchemaFromDB(
 							schemaLines.push("");
 							schemaLines.push(`-- ${title}`);
 
-							for (const [objectName, objectDef] of Object.entries(objectMap)) {
+							for (const [_objectName, objectDef] of Object.entries(objectMap)) {
 								if (applyOverwrite) {
 									// Add OVERWRITE keyword after DEFINE <TYPE>
 									schemaLines.push(

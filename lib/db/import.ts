@@ -1,5 +1,5 @@
 import type { Config } from "../config.ts";
-import { Surreal } from "surrealdb";
+import type { Surreal } from "surrealdb";
 import { createDBConnection } from "./connection.ts";
 
 /**

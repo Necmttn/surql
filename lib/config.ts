@@ -253,7 +253,7 @@ export function getOutputPath(config: Config): string {
 export function generateImports(config: Config): string {
 	const { style, paths } = config.imports;
 
-	const effectPath = paths.effect || "@effect/schema";
+	const effectPath = paths?.effect || "@effect/schema";
 
 	if (style === "esm") {
 		return `import { Schema } from "${effectPath}";\nimport { pipe } from "effect/Function";\nimport type { RecordId } from "surrealdb";`;
