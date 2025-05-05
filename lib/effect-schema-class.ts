@@ -403,7 +403,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 			effectType = `Schema.Array(Schema.Unknown)${annotationsStr}`;
 			break;
 		case "array<record>":
-			if (field.reference && field.reference.table) {
+			if (field.reference?.table) {
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
@@ -419,7 +419,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 			effectType = `Schema.Unknown${annotationsStr}`;
 			break;
 		case "record":
-			if (field.reference && field.reference.table) {
+			if (field.reference?.table) {
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
@@ -429,13 +429,13 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 			}
 			break;
 		case "references":
-			if (field.reference && field.reference.table) {
+			if (field.reference?.table) {
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
 				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
 			} else {
-				effectType = `Schema.Array(stringRecordIdSchema)${annotationsStr}`;
+				effectType = `stringRecordIdSchema${annotationsStr}`;
 			}
 			break;
 		default:

@@ -86,6 +86,14 @@ DEFINE FIELD OVERWRITE start ON chunk TYPE number PERMISSIONS FULL;
 DEFINE INDEX OVERWRITE chunkDocumentIndex ON chunk FIELDS document;
 
 -- ------------------------------
+-- TABLE: confluence
+-- ------------------------------
+
+DEFINE TABLE OVERWRITE confluence TYPE NORMAL SCHEMALESS COMMENT 'Confluence integration' PERMISSIONS NONE;
+
+DEFINE FIELD OVERWRITE document ON confluence TYPE record<document> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
+
+-- ------------------------------
 -- TABLE: document
 -- ------------------------------
 
@@ -94,17 +102,26 @@ DEFINE TABLE OVERWRITE document TYPE NORMAL SCHEMAFULL PERMISSIONS NONE;
 DEFINE FIELD OVERWRITE authors ON document TYPE array<string> COMMENT 'Authors of the document' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE authors[*] ON document TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE created_at ON document TYPE datetime DEFAULT time::now() PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE dates ON document TYPE array<string> COMMENT 'Dates extracted from the document' PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE dates[*] ON document TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE keywords ON document TYPE array<string> COMMENT 'Keywords extracted from the document' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE keywords[*] ON document TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE name ON document TYPE string COMMENT 'Display name or title of the document' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE organization ON document TYPE record<organization> PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE organizations ON document TYPE array<string> COMMENT 'Organizations extracted from the document' PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE organizations[*] ON document TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE original_file ON document TYPE option<record<file>> COMMENT 'Link to the file record if source_type is "file"' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE original_last_updated_date ON document TYPE datetime DEFAULT time::now() PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE people ON document TYPE array<string> COMMENT 'People extracted from the document' PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE people[*] ON document TYPE string PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE places ON document TYPE array<string> COMMENT 'Places extracted from the document' PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE places[*] ON document TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE processed_at ON document TYPE option<datetime> PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE processed_content_uri ON document TYPE option<string> COMMENT 'URI/Path to the processed content (e.g., Docling JSON) in object storage (S3)' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE processing_error ON document TYPE option<string> PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE processing_status ON document TYPE string DEFAULT 'pending' ASSERT $value INSIDE ['pending', 'processing', 'completed', 'failed'] PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE raw_content ON document TYPE option<string> COMMENT 'Optional raw content before processing' PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE source ON document TYPE references COMMENT 'reference to source file' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE source_id ON document TYPE string COMMENT 'Unique identifier within the original source (e.g., file ID, Slack message ts, Notion page ID)' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE source_metadata ON document FLEXIBLE TYPE option<object> COMMENT 'Source-specific metadata (e.g., URL, channel, author, parent page)' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE source_type ON document TYPE string ASSERT $value INSIDE ['file', 'slack', 'notion', 'jira', 'github', 'confluence', 'onedrive', 'web_page', 'text_input', 'unknown'] COMMENT 'The type of the original source (e.g., file, slack, notion)' PERMISSIONS FULL;
@@ -123,6 +140,7 @@ DEFINE INDEX OVERWRITE documentSourceIndex ON document FIELDS source_type, sourc
 DEFINE TABLE OVERWRITE file TYPE ANY SCHEMALESS PERMISSIONS NONE;
 
 DEFINE FIELD OVERWRITE created_at ON file TYPE datetime DEFAULT time::now() PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE document ON file TYPE record<document> REFERENCE ON DELETE IGNORE COMMENT 'The document record that this file belongs to' PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE document_paths ON file TYPE option<object> PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE document_paths.artifacts ON file TYPE option<string> PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE document_paths.html ON file TYPE option<string> PERMISSIONS FULL;
@@ -165,6 +183,14 @@ DEFINE FIELD OVERWRITE s3_output_path ON file_page TYPE option<string> PERMISSIO
 DEFINE FIELD OVERWRITE status ON file_page TYPE string DEFAULT 'pending' ASSERT $value INSIDE ['pending', 'processing', 'inference_completed', 'completed', 'failed'] PERMISSIONS FULL;
 
 -- ------------------------------
+-- TABLE: github
+-- ------------------------------
+
+DEFINE TABLE OVERWRITE github TYPE NORMAL SCHEMALESS COMMENT 'Github integration' PERMISSIONS NONE;
+
+DEFINE FIELD OVERWRITE document ON github TYPE record<document> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
+
+-- ------------------------------
 -- TABLE: invitation
 -- ------------------------------
 
@@ -178,6 +204,14 @@ DEFINE FIELD OVERWRITE organizationId ON invitation TYPE record<organization> RE
 DEFINE FIELD OVERWRITE role ON invitation TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE status ON invitation TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE teamId ON invitation TYPE option<record<team>> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
+
+-- ------------------------------
+-- TABLE: jira
+-- ------------------------------
+
+DEFINE TABLE OVERWRITE jira TYPE NORMAL SCHEMALESS COMMENT 'Jira integration' PERMISSIONS NONE;
+
+DEFINE FIELD OVERWRITE document ON jira TYPE record<document> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
 
 -- ------------------------------
 -- TABLE: member
@@ -206,6 +240,14 @@ DEFINE FIELD OVERWRITE parts ON message FLEXIBLE TYPE array<object> PERMISSIONS 
 DEFINE FIELD OVERWRITE parts[*] ON message FLEXIBLE TYPE object PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE role ON message TYPE string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE user ON message TYPE record<user> REFERENCE ON DELETE IGNORE PERMISSIONS FULL;
+
+-- ------------------------------
+-- TABLE: notion
+-- ------------------------------
+
+DEFINE TABLE OVERWRITE notion TYPE NORMAL SCHEMALESS COMMENT 'Notion integration' PERMISSIONS NONE;
+
+DEFINE FIELD OVERWRITE document ON notion TYPE record<document> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
 
 -- ------------------------------
 -- TABLE: organization
@@ -255,6 +297,14 @@ DEFINE FIELD OVERWRITE updatedAt ON session TYPE datetime DEFAULT time::now() PE
 DEFINE FIELD OVERWRITE userId ON session TYPE record<user> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
 
 -- ------------------------------
+-- TABLE: slack
+-- ------------------------------
+
+DEFINE TABLE OVERWRITE slack TYPE NORMAL SCHEMALESS COMMENT 'Slack integration' PERMISSIONS NONE;
+
+DEFINE FIELD OVERWRITE document ON slack TYPE record<document> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
+
+-- ------------------------------
 -- TABLE: team
 -- ------------------------------
 
@@ -270,6 +320,14 @@ DEFINE FIELD OVERWRITE updatedAt ON team TYPE option<datetime> DEFAULT time::now
 
 -- Indexes
 DEFINE INDEX OVERWRITE teamSlugIndex ON team FIELDS slug, organizationId UNIQUE COMMENT 'Ensure that the slug is unique within the organization';
+
+-- ------------------------------
+-- TABLE: text_input
+-- ------------------------------
+
+DEFINE TABLE OVERWRITE text_input TYPE NORMAL SCHEMALESS COMMENT 'Text input integration' PERMISSIONS NONE;
+
+DEFINE FIELD OVERWRITE document ON text_input TYPE record<document> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
 
 -- ------------------------------
 -- TABLE: user
@@ -289,3 +347,11 @@ DEFINE TABLE OVERWRITE vote TYPE NORMAL SCHEMAFULL PERMISSIONS NONE;
 DEFINE FIELD OVERWRITE chatId ON vote TYPE record<chat> PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE isUpvoted ON vote TYPE bool PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE messageId ON vote TYPE record<message> PERMISSIONS FULL;
+
+-- ------------------------------
+-- TABLE: web_page
+-- ------------------------------
+
+DEFINE TABLE OVERWRITE web_page TYPE NORMAL SCHEMALESS COMMENT 'Web page integration' PERMISSIONS NONE;
+
+DEFINE FIELD OVERWRITE document ON web_page TYPE record<document> REFERENCE ON DELETE CASCADE PERMISSIONS FULL;
