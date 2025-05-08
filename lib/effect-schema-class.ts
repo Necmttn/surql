@@ -95,6 +95,12 @@ export const recordIdSchema = <T extends string>(tableName: T) =>
 	Schema.declare<RecordId<T>>(
 		(input: unknown): input is RecordId<T> => input instanceof RecordId,
 	);
+export const recordIdLiteral = <T extends string>(tableName: T) =>
+  Schema.TemplateLiteral(
+    Schema.Literal(tableName),
+    Schema.Literal(":"),
+    Schema.String,
+  );
 
 /**
  * Create a RecordId schema for a specific table
@@ -104,11 +110,7 @@ export function recordId<T extends string>(tableName: T) {
 	return Schema.Union(
 		recordIdSchema(tableName),
 		Schema.transform(
-			Schema.TemplateLiteral(
-				Schema.Literal(tableName),
-				Schema.Literal(":"),
-				Schema.String,
-			),
+			recordIdLiteral(tableName),
 			stringRecordIdSchema,
 			{
 				strict: true,
