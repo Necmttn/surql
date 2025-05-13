@@ -21,9 +21,8 @@ export function generateEffectSchemas(tables: TableDefinition[]): string {
  * Date: ${new Date().toISOString()}
  */
 
-// Effect Model Class API integration for SurrealDB types
+// Effect Schema Class API integration for SurrealDB types
 import { Schema } from "effect";
-import { Model } from "@effect/sql";
 import { RecordId, StringRecordId } from "surrealdb";
 
 export const stringRecordIdSchema = <T extends string>(tableName: T) => Schema.transform(
@@ -46,7 +45,11 @@ export const recordIdSchema = <T extends string>(tableName: T) => Schema.transfo
   {
     strict: true,
     decode: (from: \`\${T}:\${string}\`) => {
-      return new RecordId(tableName, from.split(":")[1]);
+      const [table, id] = from.split(":");
+      if (!table || !id) {
+        throw new Error(\`Invalid RecordId: \${ from } \`);
+      }
+      return new RecordId(table, id);
     },
     encode: (to) => {
       return to.toString() as \`\${T}:\${string}\`;
@@ -106,7 +109,7 @@ export function recordId<T extends string>(tableName: T) {
 
 			// Add default 'id' field if not explicitly defined
 			if (!hasIdField) {
-				fieldDefinitions.push(`  id: Model.Generated(recordId("${name}"))`);
+				fieldDefinitions.push(`  id: recordId("${name}")`);
 			}
 
 			// Process non-nested fields first
@@ -152,8 +155,12 @@ export function recordId<T extends string>(tableName: T) {
 				: "";
 
 			return `${tableDescription}
-export class ${className} extends Model.Class<${className}>("${className}")({
+export const ${className}Fields = {
 ${fieldDefinitions.join(",\n")}
+};
+
+export class ${className} extends Schema.Class<${className}>("${className}")({
+  ...${className}Fields,
 }) {
   static readonly tableName = "${name}" as const;
 }`;
@@ -357,7 +364,8 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
-				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): typeof ${refTableClassName}.select => ${refTableClassName}.select)))${annotationsStr}`;
+				// effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
+				effectType = `Schema.Array(recordId("${field.reference.table}"))${annotationsStr}`;
 			} else {
 				effectType = `Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/)))${annotationsStr}`;
 			}
@@ -373,7 +381,8 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
-				effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): typeof ${refTableClassName}.select => ${refTableClassName}.select))${annotationsStr}`;
+				// effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName}))${annotationsStr}`;
+				effectType = `recordId("${field.reference.table}")${annotationsStr}`;
 			} else {
 				effectType = `Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:⟨\\d+⟩$/))${annotationsStr}`;
 			}
@@ -383,7 +392,8 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
-				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): typeof ${refTableClassName}.select => ${refTableClassName}.select)))${annotationsStr}`;
+				// effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
+				effectType = `Schema.Array(recordId("${field.reference.table}"))`;
 			} else {
 				effectType = `stringRecordIdSchema${annotationsStr}`;
 			}
