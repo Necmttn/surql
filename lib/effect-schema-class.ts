@@ -1,65 +1,4 @@
-import { Schema } from "effect";
 import type { TableDefinition } from "./schema.ts";
-import { RecordId, StringRecordId } from "surrealdb";
-
-/**
- * Create a RecordId schema for a specific table
- */
-function recordId<T extends string>(tableName: T) {
-	const stringRecordIdSchema = Schema.declare<StringRecordId>(
-		(input: unknown): input is StringRecordId =>
-			input instanceof StringRecordId,
-		{
-			identifier: `StringRecordId<${tableName}>`,
-			description: `A record ID for the ${tableName} table`,
-			validation: (value: unknown) => {
-				if (typeof value === "string" && value.startsWith(`${tableName}:`)) {
-					return { value: new StringRecordId(value) }
-				}
-				return { error: `Expected a record ID for table ${tableName} (format: "${tableName}:id")` }
-			}
-		}
-	);
-
-	const recordIdSchema = (tableName: T) =>
-		Schema.declare<RecordId<T>>(
-			(input: unknown): input is RecordId<T> => input instanceof RecordId,
-			{
-				identifier: `RecordId<${tableName}>`,
-				description: `A record ID for the ${tableName} table`,
-				validation: (value: unknown) => {
-					if (typeof value === "string" && value.startsWith(`${tableName}:`)) {
-						const parts = value.split(":");
-						if (parts.length > 1) {
-							return { value: new RecordId(tableName, parts[1] as any) }
-						}
-					}
-					return { error: `Expected a record ID for table ${tableName} (format: "${tableName}:id")` }
-				}
-			}
-		);
-	return Schema.Union(
-		recordIdSchema(tableName),
-		Schema.transform(
-			Schema.TemplateLiteral(
-				Schema.Literal(tableName),
-				Schema.Literal(":"),
-				Schema.String,
-			),
-			stringRecordIdSchema,
-			{
-				strict: true,
-				decode: (fromA: `${T}:${string}`, fromI: `${T}:${string}`) => {
-					return new StringRecordId(fromI);
-				},
-				encode: (toI: StringRecordId, toA: StringRecordId) => {
-					return toA.toString() as `${T}:${string}`;
-				},
-			},
-		),
-		stringRecordIdSchema,
-	);
-}
 
 /**
  * Format a table name as a class name
@@ -87,14 +26,34 @@ import { Schema } from "effect";
 import { Model } from "@effect/sql";
 import { RecordId, StringRecordId } from "surrealdb";
 
-export const stringRecordIdSchema = Schema.declare<StringRecordId>(
-	(input: unknown): input is StringRecordId =>
-		input instanceof StringRecordId,
+export const stringRecordIdSchema = <T extends string>(tableName: T) => Schema.transform(
+  recordIdLiteral(tableName),
+  Schema.instanceOf(StringRecordId),
+  {
+    strict: true,
+    decode: (from: \`\${T}:\${string}\`) => {
+      return new StringRecordId(from);
+    },
+    encode: (to) => {
+      return to.toString() as \`\${T}:\${string}\`;
+    },
+  }
 );
-export const recordIdSchema = <T extends string>(tableName: T) =>
-	Schema.declare<RecordId<T>>(
-		(input: unknown): input is RecordId<T> => input instanceof RecordId,
-	);
+
+export const recordIdSchema = <T extends string>(tableName: T) => Schema.transform(
+  recordIdLiteral(tableName),
+  Schema.instanceOf(RecordId),
+  {
+    strict: true,
+    decode: (from: \`\${T}:\${string}\`) => {
+      return new RecordId(tableName, from.split(":")[1]);
+    },
+    encode: (to) => {
+      return to.toString() as \`\${T}:\${string}\`;
+    },
+  }
+);
+
 export const recordIdLiteral = <T extends string>(tableName: T) =>
   Schema.TemplateLiteral(
     Schema.Literal(tableName),
@@ -106,23 +65,9 @@ export const recordIdLiteral = <T extends string>(tableName: T) =>
  * Create a RecordId schema for a specific table
  */
 export function recordId<T extends string>(tableName: T) {
-
 	return Schema.Union(
 		recordIdSchema(tableName),
-		Schema.transform(
-			recordIdLiteral(tableName),
-			stringRecordIdSchema,
-			{
-				strict: true,
-				decode: (fromA: \`\${T}:\${string}\`, fromI: \`\${T}:\${string}\`) => {
-					return new StringRecordId(fromI);
-				},
-				encode: (toI: StringRecordId, toA: StringRecordId) => {
-					return toA.toString() as \`\${T}:\${string}\`;
-				},
-			},
-		),
-		stringRecordIdSchema,
+		stringRecordIdSchema(tableName),
 	);
 }
 `;
@@ -140,6 +85,7 @@ export function recordId<T extends string>(tableName: T) {
 			const nestedFieldsMap = new Map<string, Array<{ path: string[]; field: any }>>();
 
 			// First pass: identify and group nested fields
+			// biome-ignore lint/complexity/noForEach: <explanation>
 			fields.forEach(field => {
 				const fieldNameParts = field.name.split('.');
 				if (fieldNameParts.length > 1 && fieldNameParts[0]) {
@@ -165,6 +111,7 @@ export function recordId<T extends string>(tableName: T) {
 
 			// Process non-nested fields first
 			const processedFields = new Set<string>();
+			// biome-ignore lint/complexity/noForEach: <explanation>
 			fields.forEach(field => {
 				const fieldNameParts = field.name.split('.');
 				const rootFieldName = fieldNameParts[0];
@@ -223,6 +170,7 @@ function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string
 	// Build a tree-like structure of the nested fields
 	const fieldTree: Record<string, any> = {};
 
+	// biome-ignore lint/complexity/noForEach: <explanation>
 	nestedFields.forEach(({ path, field }) => {
 		let current = fieldTree;
 		for (let i = 0; i < path.length; i++) {
@@ -409,7 +357,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
-				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
+				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): typeof ${refTableClassName}.select => ${refTableClassName}.select)))${annotationsStr}`;
 			} else {
 				effectType = `Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/)))${annotationsStr}`;
 			}
@@ -425,7 +373,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
-				effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName}))${annotationsStr}`;
+				effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): typeof ${refTableClassName}.select => ${refTableClassName}.select))${annotationsStr}`;
 			} else {
 				effectType = `Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:⟨\\d+⟩$/))${annotationsStr}`;
 			}
@@ -435,7 +383,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				const refTableClassName = formatClassName(
 					field.reference.table
 				);
-				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
+				effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): typeof ${refTableClassName}.select => ${refTableClassName}.select)))${annotationsStr}`;
 			} else {
 				effectType = `stringRecordIdSchema${annotationsStr}`;
 			}
