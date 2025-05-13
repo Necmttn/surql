@@ -155,14 +155,28 @@ export function recordId<T extends string>(tableName: T) {
 				: "";
 
 			return `${tableDescription}
-export const ${className}Fields = {
-${fieldDefinitions.join(",\n")}
-};
+export namespace ${className} {
+  export const Fields = {
+	${fieldDefinitions.join(",\n  ")}
+  };
 
-export class ${className} extends Schema.Class<${className}>("${className}")({
-  ...${className}Fields,
-}) {
-  static readonly tableName = "${name}" as const;
+  export class ${className} extends Schema.Class<${className}>("${className}")({
+    ...Fields,
+  }) {
+    static readonly tableName = "${name}" as const;
+  }
+
+	export type Type = Schema.Schema.Type<typeof ${className}>;
+
+  export const update = Schema.Struct({
+		...Object.fromEntries(
+			Object.entries(Fields).map(([key, schema]) => [
+				key,
+				Schema.optional(schema as Schema.Any),
+			]),
+		),
+		id: recordId("${name}"),
+	});
 }`;
 		})
 		.join("\n");
