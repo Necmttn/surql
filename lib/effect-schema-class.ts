@@ -381,7 +381,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				// effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
 				effectType = `Schema.Array(recordId("${field.reference.table}"))${annotationsStr}`;
 			} else {
-				effectType = `Schema.Array(Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/)))${annotationsStr}`;
+				effectType = `Schema.Array(Schema.instanceOf(RecordId))${annotationsStr}`;
 			}
 			break;
 		case "array<string>":
@@ -398,7 +398,10 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 				// effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName}))${annotationsStr}`;
 				effectType = `recordId("${field.reference.table}")${annotationsStr}`;
 			} else {
-				effectType = `Schema.String.pipe(Schema.pattern(/^[a-zA-Z0-9_-]+:⟨\\d+⟩$/))${annotationsStr}`;
+				if (field.name === 'source') {
+					console.log("field.reference", JSON.stringify(field, null, 2));
+				}
+				effectType = `Schema.instanceOf(RecordId)${annotationsStr}`;
 			}
 			break;
 		case "references":

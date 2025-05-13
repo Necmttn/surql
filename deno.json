@@ -1,16 +1,11 @@
 {
   "name": "@necmttn/surql",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "SurrealDB schema generator for Effect Schema",
   "exports": "./mod.ts",
   "tasks": {
-    "dev": "deno test --watch",
     "test": "deno test -A",
-    "run": "deno run -A mod.ts",
-    "run:test": "deno run -A mod.ts -i ./telegram.surql -o ./output.ts",
-    "run:example": "deno run -A mod.ts -i ./examples/user_post.surql -o ./examples/generated/types.ts",
-    "run:db": "deno run -A mod.ts --db http://localhost:8000 --output ./output.ts",
-    "export-schema": "deno run -A mod.ts export-schema"
+    "run": "deno run -A mod.ts"
   },
   "license": "MIT",
   "imports": {
