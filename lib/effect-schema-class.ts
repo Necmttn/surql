@@ -417,8 +417,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 			break;
 	}
 
-	// Make optional if needed
-	if (fieldType !== "datetime" && field.optional) {
+	if (field.optional) {
 		effectType = `Schema.optional(${effectType})`;
 	}
 
