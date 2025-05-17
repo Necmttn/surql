@@ -85,12 +85,15 @@ export function recordId<T extends string>(tableName: T) {
 			const hasIdField = fields.some((field) => field.name === "id");
 
 			// Create a map to organize nested fields
-			const nestedFieldsMap = new Map<string, Array<{ path: string[]; field: any }>>();
+			const nestedFieldsMap = new Map<
+				string,
+				Array<{ path: string[]; field: any }>
+			>();
 
 			// First pass: identify and group nested fields
 			// biome-ignore lint/complexity/noForEach: <explanation>
-			fields.forEach(field => {
-				const fieldNameParts = field.name.split('.');
+			fields.forEach((field) => {
+				const fieldNameParts = field.name.split(".");
 				if (fieldNameParts.length > 1 && fieldNameParts[0]) {
 					// This is a nested field
 					const rootField = fieldNameParts[0];
@@ -99,7 +102,7 @@ export function recordId<T extends string>(tableName: T) {
 					}
 					nestedFieldsMap.get(rootField)?.push({
 						path: fieldNameParts.slice(1),
-						field
+						field,
 					});
 				}
 			});
@@ -115,14 +118,14 @@ export function recordId<T extends string>(tableName: T) {
 			// Process non-nested fields first
 			const processedFields = new Set<string>();
 			// biome-ignore lint/complexity/noForEach: <explanation>
-			fields.forEach(field => {
-				const fieldNameParts = field.name.split('.');
+			fields.forEach((field) => {
+				const fieldNameParts = field.name.split(".");
 				const rootFieldName = fieldNameParts[0];
 
 				if (!rootFieldName) return;
 
 				// If this is a nested field, skip it
-				if (field.name.includes('.')) return;
+				if (field.name.includes(".")) return;
 
 				// If this is a root field that has nested fields, we'll process it separately
 				if (nestedFieldsMap.has(rootFieldName)) {
@@ -139,19 +142,23 @@ export function recordId<T extends string>(tableName: T) {
 			// Process nested fields
 			nestedFieldsMap.forEach((nestedFields, rootField) => {
 				// We need to find the root field definition
-				const rootFieldDef = fields.find(f => f.name === rootField) || {
+				const rootFieldDef = fields.find((f) => f.name === rootField) || {
 					name: rootField,
-					type: 'object',
-					optional: true
+					type: "object",
+					optional: true,
 				};
 
 				// Create the nested schema structure
-				const nestedSchema = generateNestedSchema(rootFieldDef, nestedFields, tables);
+				const nestedSchema = generateNestedSchema(
+					rootFieldDef,
+					nestedFields,
+					tables,
+				);
 				fieldDefinitions.push(`  ${rootField}: ${nestedSchema}`);
 			});
 
 			const tableDescription = description
-				? `\n/**\n * ${(description || '').replace(/'/g, "\\'")}\n */`
+				? `\n/**\n * ${(description || "").replace(/'/g, "\\'")}\n */`
 				: "";
 
 			return `${tableDescription}
@@ -187,7 +194,11 @@ export namespace ${className} {
 /**
  * Generate a nested schema structure for nested fields
  */
-function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string[]; field: any }>, tables: TableDefinition[]): string {
+function generateNestedSchema(
+	rootField: any,
+	nestedFields: Array<{ path: string[]; field: any }>,
+	tables: TableDefinition[],
+): string {
 	// Build a tree-like structure of the nested fields
 	const fieldTree: Record<string, any> = {};
 
@@ -220,7 +231,7 @@ function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string
 		for (const key in tree) {
 			if (!key) continue;
 
-			if (typeof tree[key] === 'object') {
+			if (typeof tree[key] === "object") {
 				if (!tree[key].type) {
 					// This is a nested structure
 					fields.push(`    ${key}: ${buildSchemaStruct(tree[key])}`);
@@ -232,7 +243,7 @@ function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string
 			}
 		}
 
-		return `Schema.Struct({\n${fields.join(',\n')}\n  })`;
+		return `Schema.Struct({\n${fields.join(",\n")}\n  })`;
 	}
 
 	// Generate the base schema
@@ -242,7 +253,7 @@ function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string
 	const annotations: string[] = [];
 
 	if (rootField.description) {
-		const escapedDescription = (rootField.description || '')
+		const escapedDescription = (rootField.description || "")
 			.replace(/\\'/g, "'")
 			.replace(/'/g, "\\'");
 		annotations.push(`description: '${escapedDescription}'`);
@@ -250,7 +261,7 @@ function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string
 
 	// Add default value if available
 	if (rootField.defaultValue) {
-		let formattedDefaultValue = rootField.defaultValue || '';
+		let formattedDefaultValue = rootField.defaultValue || "";
 
 		if (formattedDefaultValue.includes("::")) {
 			annotations.push(`surrealDefault: '${formattedDefaultValue}'`);
@@ -271,9 +282,8 @@ function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string
 		}
 	}
 
-	const annotationsStr = annotations.length > 0
-		? `.annotations({ ${annotations.join(", ")} })`
-		: "";
+	const annotationsStr =
+		annotations.length > 0 ? `.annotations({ ${annotations.join(", ")} })` : "";
 
 	// Apply optional if needed
 	let schema = `${baseSchema}${annotationsStr}`;
@@ -288,12 +298,15 @@ function generateNestedSchema(rootField: any, nestedFields: Array<{ path: string
 /**
  * Generate a field definition for a given field
  */
-function generateFieldDefinition(field: any, tables: TableDefinition[]): string {
+function generateFieldDefinition(
+	field: any,
+	tables: TableDefinition[],
+): string {
 	const annotations: string[] = [];
 
 	// Add description if available
 	if (field.description) {
-		const escapedDescription = (field.description || '')
+		const escapedDescription = (field.description || "")
 			.replace(/\\'/g, "'")
 			.replace(/'/g, "\\'");
 		annotations.push(`description: '${escapedDescription}'`);
@@ -301,7 +314,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 
 	// Add default value if available
 	if (field.defaultValue) {
-		let formattedDefaultValue = field.defaultValue || '';
+		let formattedDefaultValue = field.defaultValue || "";
 
 		// Handle SurrealDB function calls (like time::now())
 		if (formattedDefaultValue.includes("::")) {
@@ -333,17 +346,16 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 	}
 
 	// Build annotations string
-	const annotationsStr = annotations.length > 0
-		? `.annotations({ ${annotations.join(", ")} })`
-		: "";
+	const annotationsStr =
+		annotations.length > 0 ? `.annotations({ ${annotations.join(", ")} })` : "";
 
 	let effectType: string;
-	const fieldType = field.type ? field.type.toLowerCase() : 'string';
+	const fieldType = field.type ? field.type.toLowerCase() : "string";
 
 	switch (fieldType) {
 		case "int":
 		case "number":
-			effectType = `Schema.Number.pipe(Schema.int())${annotationsStr}`;
+			effectType = `Schema.Number${annotationsStr}`;
 			break;
 		case "float":
 			effectType = `Schema.Number${annotationsStr}`;
@@ -375,9 +387,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 			break;
 		case "array<record>":
 			if (field.reference?.table) {
-				const refTableClassName = formatClassName(
-					field.reference.table
-				);
+				const refTableClassName = formatClassName(field.reference.table);
 				// effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
 				effectType = `Schema.Array(recordId("${field.reference.table}"))${annotationsStr}`;
 			} else {
@@ -392,13 +402,11 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 			break;
 		case "record":
 			if (field.reference?.table) {
-				const refTableClassName = formatClassName(
-					field.reference.table
-				);
+				const refTableClassName = formatClassName(field.reference.table);
 				// effectType = `Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName}))${annotationsStr}`;
 				effectType = `recordId("${field.reference.table}")${annotationsStr}`;
 			} else {
-				if (field.name === 'source') {
+				if (field.name === "source") {
 					console.log("field.reference", JSON.stringify(field, null, 2));
 				}
 				effectType = `Schema.instanceOf(RecordId)${annotationsStr}`;
@@ -406,9 +414,7 @@ function generateFieldDefinition(field: any, tables: TableDefinition[]): string 
 			break;
 		case "references":
 			if (field.reference?.table) {
-				const refTableClassName = formatClassName(
-					field.reference.table
-				);
+				const refTableClassName = formatClassName(field.reference.table);
 				// effectType = `Schema.Array(Schema.Union(recordId("${field.reference.table}"), Schema.suspend((): Schema.Schema<${refTableClassName}> => ${refTableClassName})))${annotationsStr}`;
 				effectType = `Schema.Array(recordId("${field.reference.table}"))`;
 			} else {
