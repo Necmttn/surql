@@ -422,7 +422,7 @@ function generateFieldDefinition(
 			}
 			break;
 		default:
-			effectType = `Schema.String${annotationsStr}`;
+			effectType = `Schema.Any${annotationsStr}`;
 			break;
 	}
 
