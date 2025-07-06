@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: surrealdb-experimental
+    ports:
+      - "8003:8000"
+    command: 
+      - start
+      - --log=trace
+      - --user=root
+      - --pass=root
+      - memory
+    environment:
+      - SURREAL_EXPERIMENTAL_CHANGEFEEDS=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "surreal", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
