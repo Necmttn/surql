@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/lib/schema/field.ts","./src/lib/schema/table.ts","./src/lib/schema/schema.ts","./src/lib/schema/event.ts","./src/lib/schema/index-def.ts","./src/lib/constraints/index.ts"],"errors":true,"version":"5.8.3"}

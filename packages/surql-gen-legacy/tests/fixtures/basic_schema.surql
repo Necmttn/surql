@@ -1,0 +1,9 @@
+
+DEFINE NAMESPACE test;
+USE NAMESPACE test;
+DEFINE DATABASE basic;
+USE DATABASE basic;
+
+DEFINE TABLE user SCHEMAFULL;
+DEFINE FIELD username ON user TYPE string;
+DEFINE FIELD email ON user TYPE string;

@@ -1,0 +1,24 @@
+{
+  "name": "@necmttn/surql-gen-legacy",
+  "version": "0.9.0",
+  "description": "Original Deno-based SurrealDB schema generator (legacy)",
+  "type": "module",
+  "main": "mod.ts",
+  "author": "necmttn",
+  "license": "MIT",
+  "scripts": {
+    "dev": "deno run -A mod.ts",
+    "test": "deno test -A tests/",
+    "lint": "deno lint",
+    "format": "deno fmt"
+  },
+  "keywords": [
+    "surrealdb",
+    "schema",
+    "deno",
+    "typescript",
+    "database",
+    "legacy"
+  ],
+  "private": true
+}

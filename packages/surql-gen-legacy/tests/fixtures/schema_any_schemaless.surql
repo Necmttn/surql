@@ -1,0 +1,5 @@
+
+DEFINE TABLE user TYPE ANY SCHEMALESS PERMISSIONS NONE;
+DEFINE FIELD username ON user TYPE string;
+DEFINE FIELD email ON user TYPE string;
+DEFINE FIELD age ON user TYPE int;

@@ -1,0 +1,37 @@
+{
+  "name": "dogfooding-app",
+  "version": "1.0.0",
+  "description": "Real-world app showcasing @necmttn/surql-schema capabilities",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "biome lint src/",
+    "format": "biome format --write src/",
+    "type-check": "tsc --noEmit",
+    "db:migrate": "bun src/scripts/migrate.ts",
+    "db:seed": "bun src/scripts/seed.ts",
+    "step:01": "bun src/step-01-basic/index.ts",
+    "step:01:api": "bun src/step-01-basic/server.ts",
+    "step:02": "bun src/step-02-composition/index.ts",
+    "step:03": "bun src/step-03-annotations/index.ts",
+    "step:04": "bun src/step-04-advanced/index.ts",
+    "step:05": "bun src/step-05-real-world/index.ts"
+  },
+  "dependencies": {
+    "@necmttn/surql-schema": "workspace:*",
+    "effect": "^3.10.0",
+    "surrealdb": "^1.0.0",
+    "hono": "^4.6.7",
+    "@hono/node-server": "^1.13.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "latest",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.8"
+  }
+}

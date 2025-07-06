@@ -1,0 +1,14 @@
+
+DEFINE NAMESPACE test;
+USE NAMESPACE test;
+DEFINE DATABASE schemaless;
+USE DATABASE schemaless;
+
+DEFINE TABLE user SCHEMAFULL;
+DEFINE FIELD username ON user TYPE string;
+DEFINE FIELD email ON user TYPE string;
+
+DEFINE TABLE dynamic SCHEMALESS;
+
+DEFINE TABLE mixed FLEXIBLE;
+DEFINE FIELD required_id ON mixed TYPE string;

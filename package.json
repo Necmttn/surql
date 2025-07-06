@@ -1,0 +1,28 @@
+{
+  "name": "surql-gen-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo for surql-gen and dogfooding apps",
+  "private": true,
+  "scripts": {
+    "build": "pnpm run build:packages && pnpm run build:apps",
+    "build:packages": "pnpm --filter @necmttn/surql-schema run build",
+    "build:apps": "pnpm --filter dogfooding-app run build",
+    "test": "pnpm run test:packages && pnpm run test:apps",
+    "test:packages": "pnpm --filter @necmttn/surql-schema run test",
+    "test:apps": "pnpm --filter dogfooding-app run test",
+    "lint": "pnpm run lint:packages && pnpm run lint:apps",
+    "lint:packages": "pnpm --filter @necmttn/surql-schema run lint",
+    "lint:apps": "pnpm --filter dogfooding-app run lint",
+    "clean": "rm -rf packages/*/dist apps/*/dist",
+    "dev:dogfooding": "pnpm --filter dogfooding-app run dev",
+    "step:01": "pnpm --filter dogfooding-app run step:01",
+    "step:01:api": "pnpm --filter dogfooding-app run step:01:api",
+    "step:02": "pnpm --filter dogfooding-app run step:02",
+    "step:03": "pnpm --filter dogfooding-app run step:03"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@10.11.1"
+}

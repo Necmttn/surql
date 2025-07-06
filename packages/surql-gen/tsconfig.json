@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowJs": true,
+    "noEmit": false,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["bun-types"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@schema/*": ["./src/lib/schema/*"],
+      "@examples/*": ["./src/examples/*"]
+    }
+  },
+  "include": [
+    "src/index.ts",
+    "src/lib/schema/field.ts",
+    "src/lib/schema/table.ts",
+    "src/lib/schema/schema.ts",
+    "src/lib/schema/event.ts",
+    "src/lib/schema/index-def.ts",
+    "src/lib/constraints/index.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

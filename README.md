@@ -1,119 +1,110 @@
-# @necmttn/surql
+# @necmttn/surql-gen Monorepo
 
-Generate type-safe schemas from SurrealQL definitions, with support for automatic query type inference.
+A comprehensive SurrealDB schema management toolkit with Effect.js integration.
 
-## Installation
+## 📦 Packages
 
-### Using npm/pnpm (Node.js)
+### [@necmttn/surql-schema](./packages/surql-gen/)
+**Main Package** - Modern, type-safe SurrealDB schema management with Effect.js
+
+- 🔧 **Code-first schemas** with Schema.Class architecture
+- 🧩 **Schema.pipe composition** for reusable constraints  
+- 📝 **Rich annotations** for documentation and tooling
+- 🚀 **Migration support** with automated generation
+- 🎯 **173 comprehensive tests** demonstrating all patterns
+- 📚 **Progressive examples** from basic to real-world applications
+
+### [@necmttn/surql-gen-legacy](./packages/surql-gen-legacy/)
+**Legacy Package** - Original Deno-based implementation (archived)
+
+- 📜 Historical reference and migration source
+- 🦕 Deno runtime with TypeScript
+- 🔍 Query parsing and type inference experiments
+
+## 🚀 Apps
+
+### [Dogfooding App](./apps/dogfooding-app/) *(Coming Soon)*
+Real-world application built with @necmttn/surql-schema to validate the library design and user experience.
+
+## 🛠 Development
 
 ```bash
-pnpm add @necmttn/surql
+# Install dependencies
+bun install
+
+# Run all tests
+bun test
+
+# Development mode (all packages)
+bun dev
+
+# Build all packages
+bun build
+
+# Format code
+bun format
+
+# Lint code  
+bun lint
 ```
 
-### Using JSR (Deno)
-
-The library is available on the JavaScript Registry (JSR) for Deno:
-
-```typescript
-import { generateSchemas } from "jsr:@necmttn/surql";
-```
-
-## Command Line Usage (JSR)
+## 📖 Quick Start
 
 ```bash
-# Export schema from a SurrealDB instance to a file
-deno run -A jsr:@necmttn/surql export-schema --overwrite --db-url http://localhost:8000
+# Install the main package
+bun add @necmttn/surql-schema
 
-# Generate TypeScript models from a SurrealDB instance
-deno run -A jsr:@necmttn/surql db --db-url http://localhost:8000
+# Create your first schema
+import { SurrealField, SurrealTable, SurrealSchema } from '@necmttn/surql-schema';
 
-# Process a schema file
-deno run -A jsr:@necmttn/surql process -i schema.overwrite.surql -o schema.ts
+const userTable = SurrealTable.create("user", [
+  SurrealField.id("user"),
+  SurrealField.string("email").unique().description("User email"),
+  SurrealField.string("name").description("User display name"),
+  SurrealField.datetime("created_at").default("time::now()"),
+]);
 
-# With version specification
-deno run -A jsr:@necmttn/surql@1.0.0 export-schema --db-url http://localhost:8000
+const schema = SurrealSchema.create("my_app", "1.0.0")
+  .addTable(userTable);
+
+// Generate SurrealQL
+console.log(schema.toSurrealQL());
 ```
 
-## Generated Schema Examples
+## 🎯 Learning Path
 
-### From SurrealQL to TypeScript
+Follow the progressive examples in the main package:
 
-The library transforms SurrealQL definitions like this:
+1. **[Level 1: Basic Usage](./packages/surql-gen/src/examples/01-basic/)** - Schema.Class fundamentals
+2. **[Level 2: Composition](./packages/surql-gen/src/examples/02-composition/)** - Schema.pipe patterns
+3. **[Level 3: Annotations](./packages/surql-gen/src/examples/03-annotations/)** - Metadata and documentation
+4. **[Level 4: Advanced](./packages/surql-gen/src/examples/04-advanced/)** - Validation and migrations
+5. **[Level 5: Real-World](./packages/surql-gen/src/examples/05-real-world/)** - Complete applications
 
-```sql
-DEFINE TABLE OVERWRITE message TYPE NORMAL SCHEMAFULL;
-DEFINE FIELD OVERWRITE content ON message TYPE string;
-DEFINE FIELD OVERWRITE chat ON message TYPE record<chat> REFERENCE ON DELETE CASCADE;
-DEFINE FIELD OVERWRITE createdAt ON message TYPE datetime DEFAULT time::now();
-```
+## 🌟 Key Features
 
-Into type-safe Effect Model classes:
+- **Effect.js Integration** - Leverages Effect's Schema.Class and pipe patterns
+- **Type Safety** - Compile-time and runtime validation
+- **Developer Experience** - Rich tooling and documentation generation
+- **Migration Support** - Automated schema evolution with rollback
+- **Performance** - Optimized for large schemas and complex relationships
+- **Real-World Ready** - Production patterns for e-commerce, SaaS, and content platforms
 
-```typescript
-export class Message extends Model.Class<Message>("Message")({
-  id: Model.Generated(recordId("message")),
-  content: Schema.String,
-  chat: Schema.Union(recordId("chat"), Schema.suspend((): Schema.Schema<Chat> => Chat)),
-  createdAt: Schema.DateFromSelf.annotations({ surrealDefault: 'time::now()' })
-}) {
-  static readonly tableName = "message" as const;
-}
-```
+## 📚 Documentation
 
-## Using Generated Models
+- [Main Package Documentation](./packages/surql-gen/README.md)
+- [Progressive Examples Guide](./packages/surql-gen/src/examples/README.md)
+- [Migration Guide from Legacy](./docs/MIGRATION.md) *(Coming Soon)*
 
-```typescript
-import { Message } from "./generated/schema";
-import { recordId } from "@necmttn/surql";
+## 🤝 Contributing
 
-// Create a new message with type checking
-const message = new Message({
-  content: "Hello world",
-  chat: recordId("chat")("chat:abc123"),
-  createdAt: new Date()
-});
+We welcome contributions! The monorepo structure makes it easy to:
 
-// Perform database operations
-const result = await db.create(message);
-```
+1. **Improve the core library** in `packages/surql-gen/`
+2. **Add new examples** to demonstrate patterns
+3. **Build applications** that showcase the library capabilities
+4. **Enhance documentation** and learning resources
 
-## Configuration
+## 📄 License
 
-Create a `surql-gen.config.ts` file:
-
-```typescript
-import type { Config } from "@necmttn/surql/lib/config.ts";
-
-export const config: Config = {
-  output: {
-    path: "./generated",
-    filename: "schema",
-    extension: "ts",
-  },
-  imports: {
-    style: "esm",
-    schemaSystem: "effect",
-  },
-  db: {
-    url: "http://localhost:8000",
-    namespace: "test",
-    database: "test",
-  },
-};
-
-export default config;
-```
-
-## Automation with CLI
-
-For automated schema export and model generation, add to your build scripts:
-
-```json
-"scripts": {
-  "generate:schema": "deno run -A jsr:@necmttn/surql export-schema --overwrite --db-url http://localhost:8000 && deno run -A jsr:@necmttn/surql db --db-url http://localhost:8000"
-}
-```
-
-## License
-
-MIT
+MIT - See [LICENSE](./LICENSE) for details.
