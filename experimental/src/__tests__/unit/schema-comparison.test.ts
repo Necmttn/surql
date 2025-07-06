@@ -38,11 +38,11 @@ describe("SchemaComparator", () => {
 
     it("should detect modified tables", () => {
       const oldSchema = SurrealSchema.create("test", "1.0.0").addTable(
-        SurrealTable.create("user").description("Old description")
+        SurrealTable.create("user").withDescription("Old description")
       );
 
       const newSchema = SurrealSchema.create("test", "1.1.0").addTable(
-        SurrealTable.create("user").description("New description")
+        SurrealTable.create("user").withDescription("New description")
       );
 
       const diff = SchemaComparator.compare(oldSchema, newSchema);
@@ -259,12 +259,12 @@ describe("SchemaComparator", () => {
   describe("AI Metadata Changes", () => {
     it("should detect AI metadata changes in tables", () => {
       const oldSchema = SurrealSchema.create("test", "1.0.0").addTable(
-        SurrealTable.create("user").description("User table")
+        SurrealTable.create("user").withDescription("User table")
       );
 
       const newSchema = SurrealSchema.create("test", "1.1.0").addTable(
         SurrealTable.create("user")
-          .description("User table")
+          .withDescription("User table")
           .aiPrimaryKey("email")
           .aiCommonQueries(["find by email"])
       );

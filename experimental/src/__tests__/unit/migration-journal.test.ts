@@ -38,7 +38,9 @@ describe("MigrationJournalService", () => {
         expect(journal.entries).toHaveLength(0);
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
   });
 
@@ -54,7 +56,7 @@ describe("MigrationJournalService", () => {
           journal,
           "001_initial_schema",
           "Initial schema setup",
-          "developer"
+          "developer",
         );
 
         expect(journal.entries).toHaveLength(1);
@@ -68,7 +70,9 @@ describe("MigrationJournalService", () => {
         expect(typeof entry.when).toBe("number");
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
 
     it("should increment migration index", async () => {
@@ -79,7 +83,11 @@ describe("MigrationJournalService", () => {
         let journal = yield* service.loadJournal;
 
         journal = service.addMigration(journal, "001_first", "First migration");
-        journal = service.addMigration(journal, "002_second", "Second migration");
+        journal = service.addMigration(
+          journal,
+          "002_second",
+          "Second migration",
+        );
         journal = service.addMigration(journal, "003_third", "Third migration");
 
         expect(journal.entries).toHaveLength(3);
@@ -88,7 +96,9 @@ describe("MigrationJournalService", () => {
         expect(journal.entries[2].idx).toBe(2);
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
 
     it("should get latest migration", async () => {
@@ -112,7 +122,9 @@ describe("MigrationJournalService", () => {
         expect(latest?.idx).toBe(1);
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
   });
 
@@ -133,7 +145,9 @@ describe("MigrationJournalService", () => {
         expect(tag1).not.toBe(tag2);
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
   });
 
@@ -166,7 +180,9 @@ describe("MigrationJournalService", () => {
         expect(typeof snapshot.timestamp).toBe("number");
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
   });
 
@@ -178,7 +194,12 @@ describe("MigrationJournalService", () => {
         yield* service.ensureDirectoryStructure;
 
         let journal = yield* service.loadJournal;
-        journal = service.addMigration(journal, "001_test", "Test migration", "test-user");
+        journal = service.addMigration(
+          journal,
+          "001_test",
+          "Test migration",
+          "test-user",
+        );
 
         yield* service.saveJournal(journal);
 
@@ -190,7 +211,9 @@ describe("MigrationJournalService", () => {
         expect(loadedJournal.entries[0].author).toBe("test-user");
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
   });
 
@@ -212,7 +235,9 @@ describe("MigrationJournalService", () => {
         expect(original).not.toBe(modified);
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
 
     it("should support structural equality for entries", () => {
@@ -253,7 +278,9 @@ describe("MigrationJournalService", () => {
         expect(snapshot).toBeUndefined();
       });
 
-      await Effect.runPromise(Effect.provide(program, MigrationJournalService.Default));
+      await Effect.runPromise(
+        Effect.provide(program, MigrationJournalService.Default),
+      );
     });
   });
 });

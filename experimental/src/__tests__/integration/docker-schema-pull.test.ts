@@ -156,7 +156,7 @@ describe("Docker SurrealDB Schema Pull Integration", () => {
 
       // Create our enhanced schema
       const schema = SurrealSchema.create("docker-test", "1.0.0")
-        .description("Schema pulled from Docker SurrealDB integration test");
+        .withDescription("Schema pulled from Docker SurrealDB integration test");
 
       // Process test_user table
       const userTableDef = schemaInfo.tables.test_user as string;
@@ -168,7 +168,7 @@ describe("Docker SurrealDB Schema Pull Integration", () => {
       // Extract description and AI metadata
       const userComment = userCommentMatch![1];
       const baseDescription = userComment.split(". @ai-hints:")[0];
-      userTable = userTable.description(baseDescription);
+      userTable = userTable.withDescription(baseDescription);
 
       const userAiMatch = userComment.match(/@ai-hints:\s*({.*})/);
       if (userAiMatch) {
@@ -233,17 +233,17 @@ describe("Docker SurrealDB Schema Pull Integration", () => {
       // Verify the reconstructed table
       expect(userTable.getName()).toBe("test_user");
       expect(userTable.getDescription()).toBe("User accounts table for testing");
-      expect(userTable.definition.aiHints?.primary_key).toBe("email");
-      expect(userTable.definition.aiHints?.temporal_field).toBe("created_at");
-      expect(userTable.definition.aiHints?.user_field).toBe("email");
-      expect(userTable.definition.aiHints?.content_fields).toEqual(["username", "bio"]);
+      expect(userTable.getAiHints()?.primary_key).toBe("email");
+      expect(userTable.getAiHints()?.temporal_field).toBe("created_at");
+      expect(userTable.getAiHints()?.user_field).toBe("email");
+      expect(userTable.getAiHints()?.content_fields).toEqual(["username", "bio"]);
       expect(userTable.getFields().length).toBeGreaterThan(5);
 
       const emailField = userTable.getField("email");
       expect(emailField?.getDescription()).toBe("User email address - primary identifier");
 
       const bioField = userTable.getField("bio");
-      expect(bioField?.definition.isOptional).toBe(true);
+      expect(bioField?.isOptional).toBe(true);
       expect(bioField?.getDescription()).toBe("User biography or description");
 
       // Test that outputs are generated (basic validation)
@@ -299,7 +299,7 @@ describe("Docker SurrealDB Schema Pull Integration", () => {
 
       // Parse tables and create our improved schema
       const schema = SurrealSchema.create("pulled-schema", "1.0.0")
-        .description(`Schema pulled from ${dbUrl}/${namespace}/${database}`);
+        .withDescription(`Schema pulled from ${dbUrl}/${namespace}/${database}`);
 
       let processedTables = 0;
       let tablesWithAI = 0;
@@ -326,7 +326,7 @@ describe("Docker SurrealDB Schema Pull Integration", () => {
           if (commentMatch) {
             const comment = commentMatch[1];
             const baseDescription = comment.split(". @ai-hints:")[0];
-            table = table.description(baseDescription);
+            table = table.withDescription(baseDescription);
             
             // Check if comment contains AI metadata
             if (comment.includes("@ai-hints")) {

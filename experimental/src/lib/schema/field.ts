@@ -280,7 +280,9 @@ export class SurrealField extends Schema.Class<SurrealField>("SurrealField")({
   }
 
   getDescription(): string | undefined {
-    return this.description;
+    // Access the actual property value, not the method
+    const encoded = SurrealField.encode(this);
+    return encoded.description;
   }
 
   getDefaultValue(): string | undefined {
@@ -358,9 +360,9 @@ export class SurrealField extends Schema.Class<SurrealField>("SurrealField")({
     }
 
     // Add description as comment
-    if (this.description) {
-      const desc = String(this.description);
-      sql += ` COMMENT '${desc.replace(/'/g, "\\'")}'`;
+    const description = this.getDescription();
+    if (description) {
+      sql += ` COMMENT '${description.replace(/'/g, "\\'")}'`;
     }
 
     return sql + ";";

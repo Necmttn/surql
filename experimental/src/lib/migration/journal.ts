@@ -216,6 +216,4 @@ ${downSql}
       } as const;
     }),
   }
-) {
-  static readonly Default = Layer.succeed(this, this.of({}));
-}
+) {}

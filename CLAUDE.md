@@ -104,3 +104,9 @@ Configuration via `surql-gen.config.ts` or `surql-gen.json`:
    - Always run `deno test -A` before committing changes
    - Add tests for any new functionality
    - Maintain backward compatibility
+
+## Project Runtime Environment
+
+- Using Bun for project management and testing
+  - Leveraging Bun's test runner for efficient test execution
+  - Utilizing Bun's performance and compatibility features

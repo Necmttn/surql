@@ -1,9 +1,9 @@
 import { Data, Effect, Equal } from "effect";
-import type { SurrealEvent } from "../schema/improved-event.ts";
-import type { SurrealField } from "../schema/improved-field.ts";
-import type { SurrealIndex } from "../schema/improved-index.ts";
-import type { SurrealSchema } from "../schema/improved-schema.ts";
-import type { SurrealTable } from "../schema/improved-table.ts";
+import type { SurrealEvent } from "../schema/event.ts";
+import type { SurrealField } from "../schema/field.ts";
+import type { SurrealIndex } from "../schema/index-def.ts";
+import type { SurrealSchema } from "../schema/schema.ts";
+import type { SurrealTable } from "../schema/table.ts";
 
 // Diff operation types
 export type DiffOperation = "CREATE" | "DROP" | "MODIFY";
@@ -154,14 +154,14 @@ export class SchemaComparator {
   private static hasTableChanges(oldTable: SurrealTable, newTable: SurrealTable): boolean {
     // Compare basic properties
     if (oldTable.getName() !== newTable.getName()) return true;
-    if (oldTable.isSchemafull() !== newTable.isSchemafull()) return true;
+    if (oldTable.isSchemaFull() !== newTable.isSchemaFull()) return true;
     if (oldTable.isView() !== newTable.isView()) return true;
-    if (oldTable.isDrop() !== newTable.isDrop()) return true;
+    if (oldTable.drop !== newTable.drop) return true;
     if (oldTable.getDescription() !== newTable.getDescription()) return true;
 
     // Compare AI metadata
-    const oldHints = oldTable.definition.aiHints;
-    const newHints = newTable.definition.aiHints;
+    const oldHints = oldTable.getAiHints();
+    const newHints = newTable.getAiHints();
 
     if (oldHints?.primary_key !== newHints?.primary_key) return true;
     if (oldHints?.temporal_field !== newHints?.temporal_field) return true;
@@ -194,19 +194,16 @@ export class SchemaComparator {
   }
 
   private static hasFieldChanges(oldField: SurrealField, newField: SurrealField): boolean {
-    const oldDef = oldField.definition;
-    const newDef = newField.definition;
-
-    if (oldDef.name !== newDef.name) return true;
-    if (oldDef.type !== newDef.type) return true;
-    if (oldDef.isOptional !== newDef.isOptional) return true;
-    if (oldDef.isId !== newDef.isId) return true;
-    if (oldDef.defaultValue !== newDef.defaultValue) return true;
-    if (oldDef.description !== newDef.description) return true;
+    if (oldField.getName() !== newField.getName()) return true;
+    if (oldField.getType() !== newField.getType()) return true;
+    if (oldField.isOptional !== newField.isOptional) return true;
+    if (oldField.isId !== newField.isId) return true;
+    if (oldField.getDefaultValue() !== newField.getDefaultValue()) return true;
+    if (oldField.getDescription() !== newField.getDescription()) return true;
 
     // Compare constraints
-    const oldConstraints = oldDef.constraints;
-    const newConstraints = newDef.constraints;
+    const oldConstraints = oldField.getConstraints();
+    const newConstraints = newField.getConstraints();
 
     if (oldConstraints?.unique !== newConstraints?.unique) return true;
     if (oldConstraints?.pattern !== newConstraints?.pattern) return true;
@@ -218,29 +215,26 @@ export class SchemaComparator {
   }
 
   private static hasIndexChanges(oldIndex: SurrealIndex, newIndex: SurrealIndex): boolean {
-    const oldDef = oldIndex.definition;
-    const newDef = newIndex.definition;
-
-    if (oldDef.name !== newDef.name) return true;
-    if (oldDef.table !== newDef.table) return true;
-    if (oldDef.type !== newDef.type) return true;
-    if (JSON.stringify(oldDef.fields) !== JSON.stringify(newDef.fields)) return true;
-    if (oldDef.analyzer !== newDef.analyzer) return true;
-    if (oldDef.highlights !== newDef.highlights) return true;
-    if (oldDef.description !== newDef.description) return true;
+    if (oldIndex.getName() !== newIndex.getName()) return true;
+    if (oldIndex.getTable() !== newIndex.getTable()) return true;
+    if (oldIndex.getType() !== newIndex.getType()) return true;
+    if (JSON.stringify(oldIndex.getFields()) !== JSON.stringify(newIndex.getFields())) return true;
+    if (oldIndex.unique !== newIndex.unique) return true;
+    if (oldIndex.fulltext !== newIndex.fulltext) return true;
+    if (oldIndex.getCondition() !== newIndex.getCondition()) return true;
+    if (oldIndex.getDescription() !== newIndex.getDescription()) return true;
 
     return false;
   }
 
   private static hasEventChanges(oldEvent: SurrealEvent, newEvent: SurrealEvent): boolean {
-    const oldDef = oldEvent.definition;
-    const newDef = newEvent.definition;
-
-    if (oldDef.name !== newDef.name) return true;
-    if (oldDef.table !== newDef.table) return true;
-    if (oldDef.when !== newDef.when) return true;
-    if (oldDef.then !== newDef.then) return true;
-    if (oldDef.description !== newDef.description) return true;
+    if (oldEvent.getName() !== newEvent.getName()) return true;
+    if (oldEvent.getTable() !== newEvent.getTable()) return true;
+    if (oldEvent.getTiming() !== newEvent.getTiming()) return true;
+    if (oldEvent.getAction() !== newEvent.getAction()) return true;
+    if (oldEvent.getCondition() !== newEvent.getCondition()) return true;
+    if (oldEvent.getThen() !== newEvent.getThen()) return true;
+    if (oldEvent.getDescription() !== newEvent.getDescription()) return true;
 
     return false;
   }

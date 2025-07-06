@@ -70,7 +70,7 @@ describe("Schema Pull Integration", () => {
       expect(commentMatch).toBeTruthy();
 
       const comment = commentMatch?.[1];
-      table = table.description(comment.split(". @ai-hints:")[0]);
+      table = table.withDescription(comment.split(". @ai-hints:")[0]);
 
       const aiMatch = comment.match(/@ai-hints:\s*({.*})/);
       if (aiMatch) {
@@ -120,17 +120,17 @@ describe("Schema Pull Integration", () => {
       // Verify the reconstructed schema
       expect(table.getName()).toBe("user");
       expect(table.getDescription()).toBe("User accounts table");
-      expect(table.definition.aiHints?.primary_key).toBe("email");
-      expect(table.definition.aiHints?.temporal_field).toBe("created_at");
-      expect(table.definition.aiHints?.content_fields).toEqual(["username", "bio"]);
+      expect(table.getAiHints()?.primary_key).toBe("email");
+      expect(table.getAiHints()?.temporal_field).toBe("created_at");
+      expect(table.getAiHints()?.content_fields).toEqual(["username", "bio"]);
       expect(table.getFields()).toHaveLength(5);
 
       const emailField = table.getField("email");
-      expect(emailField?.definition.constraints?.unique).toBe(true);
+      expect(emailField?.getConstraints()?.unique).toBe(true);
       expect(emailField?.getDescription()).toBe("User email address");
 
       const bioField = table.getField("bio");
-      expect(bioField?.definition.isOptional).toBe(true);
+      expect(bioField?.isOptional).toBe(true);
       expect(bioField?.getDescription()).toBe("User biography");
     });
   });
@@ -142,7 +142,7 @@ describe("Schema Pull Integration", () => {
         SurrealField.string("username").unique(),
         SurrealField.string("email").unique(),
       ])
-        .description("User accounts table")
+        .withDescription("User accounts table")
         .aiPrimaryKey("email")
         .aiTemporalField("created_at")
         .aiContentFields(["username"]);
@@ -161,7 +161,7 @@ describe("Schema Pull Integration", () => {
         SurrealField.id("user"),
         SurrealField.string("email").unique(),
       ])
-        .description("User accounts table")
+        .withDescription("User accounts table")
         .aiPrimaryKey("email")
         .aiCommonQueries(["find user by email"]);
 
@@ -183,17 +183,17 @@ describe("Schema Pull Integration", () => {
         SurrealField.string("email").unique(),
         SurrealField.string("username"),
       ])
-        .description("User accounts table")
+        .withDescription("User accounts table")
         .aiPrimaryKey("email")
         .aiTemporalField("created_at")
         .aiContentFields(["username"])
         .aiCommonQueries(["find user by email", "get active users"]);
 
       // Verify original table has AI metadata
-      expect(originalTable.definition.aiHints?.primary_key).toBe("email");
-      expect(originalTable.definition.aiHints?.temporal_field).toBe("created_at");
-      expect(originalTable.definition.aiHints?.content_fields).toEqual(["username"]);
-      expect(originalTable.definition.aiHints?.common_queries).toEqual([
+      expect(originalTable.getAiHints()?.primary_key).toBe("email");
+      expect(originalTable.getAiHints()?.temporal_field).toBe("created_at");
+      expect(originalTable.getAiHints()?.content_fields).toEqual(["username"]);
+      expect(originalTable.getAiHints()?.common_queries).toEqual([
         "find user by email",
         "get active users",
       ]);
@@ -217,24 +217,24 @@ describe("Schema Pull Integration", () => {
         SurrealField.string("email").unique(),
         SurrealField.string("username"),
       ])
-        .description("User accounts table")
+        .withDescription("User accounts table")
         .aiPrimaryKey("email")
         .aiTemporalField("created_at")
         .aiContentFields(["username"])
         .aiCommonQueries(["find user by email", "get active users"]);
 
       // Verify reconstructed table matches original
-      expect(reconstructedTable.definition.aiHints?.primary_key).toBe(
-        originalTable.definition.aiHints?.primary_key
+      expect(reconstructedTable.getAiHints()?.primary_key).toBe(
+        originalTable.getAiHints()?.primary_key
       );
-      expect(reconstructedTable.definition.aiHints?.temporal_field).toBe(
-        originalTable.definition.aiHints?.temporal_field
+      expect(reconstructedTable.getAiHints()?.temporal_field).toBe(
+        originalTable.getAiHints()?.temporal_field
       );
-      expect(reconstructedTable.definition.aiHints?.content_fields).toEqual(
-        originalTable.definition.aiHints?.content_fields
+      expect(reconstructedTable.getAiHints()?.content_fields).toEqual(
+        originalTable.getAiHints()?.content_fields
       );
-      expect(reconstructedTable.definition.aiHints?.common_queries).toEqual(
-        originalTable.definition.aiHints?.common_queries
+      expect(reconstructedTable.getAiHints()?.common_queries).toEqual(
+        originalTable.getAiHints()?.common_queries
       );
     });
   });

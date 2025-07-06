@@ -358,8 +358,8 @@ export class MigrationGenerator {
     const parts: string[] = [];
 
     // Check for schema mode changes
-    if (oldTable.isSchemafull() !== newTable.isSchemafull()) {
-      const mode = newTable.isSchemafull() ? "SCHEMAFULL" : "SCHEMALESS";
+    if (oldTable.isSchemaFull() !== newTable.isSchemaFull()) {
+      const mode = newTable.isSchemaFull() ? "SCHEMAFULL" : "SCHEMALESS";
       parts.push(`ALTER TABLE ${newTable.getName()} ${mode}`);
     }
 
