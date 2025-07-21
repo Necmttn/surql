@@ -508,7 +508,6 @@ DEFINE FIELD created_at ON notion_blocks TYPE datetime DEFAULT time::now() PERMI
 DEFINE FIELD notion_id ON notion_blocks TYPE string COMMENT 'Notion block ID' PERMISSIONS FULL;
 DEFINE FIELD parent_id ON notion_blocks TYPE string COMMENT 'Parent page/database ID' PERMISSIONS FULL;
 DEFINE FIELD raw_data ON notion_blocks FLEXIBLE TYPE object COMMENT 'Raw block data from Notion API' PERMISSIONS FULL;
-DEFINE FIELD stream_metadata ON notion_blocks FLEXIBLE TYPE object DEFAULT {  } COMMENT 'Stream-specific metadata for sync control' PERMISSIONS FULL;
 DEFINE FIELD sync_cursor ON notion_blocks TYPE option<string> COMMENT 'Cursor for incremental sync' PERMISSIONS FULL;
 DEFINE FIELD synced_at ON notion_blocks TYPE datetime DEFAULT time::now() COMMENT 'When this record was last synced' PERMISSIONS FULL;
 DEFINE FIELD team_id ON notion_blocks TYPE record<team> REFERENCE ON DELETE CASCADE COMMENT 'Team this block belongs to' PERMISSIONS FULL;
@@ -530,7 +529,6 @@ DEFINE FIELD created_at ON notion_comments TYPE datetime DEFAULT time::now() PER
 DEFINE FIELD notion_id ON notion_comments TYPE string COMMENT 'Notion comment ID' PERMISSIONS FULL;
 DEFINE FIELD parent_id ON notion_comments TYPE string COMMENT 'Parent page/block ID' PERMISSIONS FULL;
 DEFINE FIELD raw_data ON notion_comments FLEXIBLE TYPE object COMMENT 'Raw comment data from Notion API' PERMISSIONS FULL;
-DEFINE FIELD stream_metadata ON notion_comments FLEXIBLE TYPE object DEFAULT {  } COMMENT 'Stream-specific metadata for sync control' PERMISSIONS FULL;
 DEFINE FIELD sync_cursor ON notion_comments TYPE option<string> COMMENT 'Cursor for incremental sync' PERMISSIONS FULL;
 DEFINE FIELD synced_at ON notion_comments TYPE datetime DEFAULT time::now() COMMENT 'When this record was last synced' PERMISSIONS FULL;
 DEFINE FIELD team_id ON notion_comments TYPE record<team> REFERENCE ON DELETE CASCADE COMMENT 'Team this comment belongs to' PERMISSIONS FULL;
@@ -551,7 +549,6 @@ DEFINE TABLE notion_databases TYPE NORMAL SCHEMALESS COMMENT 'Notion databases' 
 DEFINE FIELD created_at ON notion_databases TYPE datetime DEFAULT time::now() PERMISSIONS FULL;
 DEFINE FIELD notion_id ON notion_databases TYPE string COMMENT 'Notion database ID' PERMISSIONS FULL;
 DEFINE FIELD raw_data ON notion_databases FLEXIBLE TYPE object COMMENT 'Raw database data from Notion API' PERMISSIONS FULL;
-DEFINE FIELD stream_metadata ON notion_databases FLEXIBLE TYPE object DEFAULT {  } COMMENT 'Stream-specific metadata for sync control' PERMISSIONS FULL;
 DEFINE FIELD sync_cursor ON notion_databases TYPE option<string> COMMENT 'Cursor for incremental sync' PERMISSIONS FULL;
 DEFINE FIELD synced_at ON notion_databases TYPE datetime DEFAULT time::now() COMMENT 'When this record was last synced' PERMISSIONS FULL;
 DEFINE FIELD team_id ON notion_databases TYPE record<team> REFERENCE ON DELETE CASCADE COMMENT 'Team this database belongs to' PERMISSIONS FULL;
@@ -571,7 +568,6 @@ DEFINE TABLE notion_pages TYPE NORMAL SCHEMALESS COMMENT 'Notion pages' PERMISSI
 DEFINE FIELD created_at ON notion_pages TYPE datetime DEFAULT time::now() PERMISSIONS FULL;
 DEFINE FIELD notion_id ON notion_pages TYPE string COMMENT 'Notion page ID' PERMISSIONS FULL;
 DEFINE FIELD raw_data ON notion_pages FLEXIBLE TYPE object COMMENT 'Raw page data from Notion API' PERMISSIONS FULL;
-DEFINE FIELD stream_metadata ON notion_pages FLEXIBLE TYPE object DEFAULT {  } COMMENT 'Stream-specific metadata for sync control' PERMISSIONS FULL;
 DEFINE FIELD sync_cursor ON notion_pages TYPE option<string> COMMENT 'Cursor for incremental sync' PERMISSIONS FULL;
 DEFINE FIELD synced_at ON notion_pages TYPE datetime DEFAULT time::now() COMMENT 'When this record was last synced' PERMISSIONS FULL;
 DEFINE FIELD team_id ON notion_pages TYPE record<team> REFERENCE ON DELETE CASCADE COMMENT 'Team this page belongs to' PERMISSIONS FULL;
@@ -625,7 +621,6 @@ DEFINE TABLE notion_users TYPE NORMAL SCHEMALESS COMMENT 'Notion users stream da
 DEFINE FIELD created_at ON notion_users TYPE datetime DEFAULT time::now() PERMISSIONS FULL;
 DEFINE FIELD notion_id ON notion_users TYPE string COMMENT 'Notion user ID' PERMISSIONS FULL;
 DEFINE FIELD raw_data ON notion_users FLEXIBLE TYPE object COMMENT 'Raw user data from Notion API' PERMISSIONS FULL;
-DEFINE FIELD stream_metadata ON notion_users FLEXIBLE TYPE object DEFAULT {  } COMMENT 'Stream-specific metadata for sync control' PERMISSIONS FULL;
 DEFINE FIELD sync_cursor ON notion_users TYPE option<string> COMMENT 'Cursor for incremental sync' PERMISSIONS FULL;
 DEFINE FIELD synced_at ON notion_users TYPE datetime DEFAULT time::now() COMMENT 'When this record was last synced' PERMISSIONS FULL;
 DEFINE FIELD team_id ON notion_users TYPE record<team> REFERENCE ON DELETE CASCADE COMMENT 'Team this user belongs to' PERMISSIONS FULL;

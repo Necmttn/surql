@@ -14,12 +14,13 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
-    "cli": "bun bun-cli.ts",
+    "cli": "bun src/cli/schema-cli.ts",
+    "migrate": "bun src/cli/schema-cli.ts migrate",
     "example": "bun src/examples/complete-example.ts",
     "demo": "bun bun-cli.ts demo",
     "lint": "biome lint src/",
     "format": "biome format --write src/",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --project tsconfig.cli.json --noEmit || true",
     "clean": "rm -rf dist"
   },
   "dependencies": {

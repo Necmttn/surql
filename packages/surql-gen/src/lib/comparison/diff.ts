@@ -9,7 +9,7 @@ import type { SurrealTable } from "../schema/table";
 export type DiffOperation = "CREATE" | "DROP" | "MODIFY";
 
 // Base diff interface
-export interface BaseDiff extends Data.Case {
+export interface BaseDiff extends Data.case {
   readonly operation: DiffOperation;
   readonly description: string;
 }
@@ -58,7 +58,7 @@ export interface EventDiff extends BaseDiff {
 export const EventDiff = Data.case<EventDiff>();
 
 // Schema diff result
-export interface SchemaDiff extends Data.Case {
+export interface SchemaDiff extends Data.case {
   readonly _tag: "SchemaDiff";
   readonly oldSchema: SurrealSchema;
   readonly newSchema: SurrealSchema;
@@ -86,6 +86,7 @@ export class SchemaComparator {
       eventDiffs.length > 0;
 
     return SchemaDiff({
+      _tag: "SchemaDiff",
       oldSchema,
       newSchema,
       tableDiffs,
@@ -109,6 +110,7 @@ export class SchemaComparator {
       if (!newTables.has(tableName)) {
         diffs.push(
           TableDiff({
+            _tag: "TableDiff",
             operation: "DROP",
             tableName,
             oldTable,
@@ -123,6 +125,7 @@ export class SchemaComparator {
       if (!oldTables.has(tableName)) {
         diffs.push(
           TableDiff({
+            _tag: "TableDiff",
             operation: "CREATE",
             tableName,
             newTable,
@@ -138,6 +141,7 @@ export class SchemaComparator {
       if (oldTable && SchemaComparator.hasTableChanges(oldTable, newTable)) {
         diffs.push(
           TableDiff({
+            _tag: "TableDiff",
             operation: "MODIFY",
             tableName,
             oldTable,

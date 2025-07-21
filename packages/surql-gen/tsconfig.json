@@ -17,6 +17,7 @@
     "declarationMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
+    "downlevelIteration": true,
     "types": ["bun-types"],
     "paths": {
       "@/*": ["./src/*"],
@@ -26,13 +27,7 @@
     }
   },
   "include": [
-    "src/index.ts",
-    "src/lib/schema/field.ts",
-    "src/lib/schema/table.ts",
-    "src/lib/schema/schema.ts",
-    "src/lib/schema/event.ts",
-    "src/lib/schema/index-def.ts",
-    "src/lib/constraints/index.ts"
+    "src/**/*"
   ],
   "exclude": ["node_modules", "dist"]
 }

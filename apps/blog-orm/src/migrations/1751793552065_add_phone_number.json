@@ -1,0 +1,19 @@
+{
+  "id": "1751793552065_add_phone_number",
+  "name": "add_phone_number",
+  "version": "3.1.0",
+  "timestamp": "2025-07-06T09:19:12.065Z",
+  "operations": [
+    {
+      "type": "ADD_FIELD",
+      "tableName": "user",
+      "fieldName": "phone_number",
+      "sql": "DEFINE FIELD phone_number ON user TYPE string COMMENT 'User phone number for notifications';",
+      "rollbackSql": "REMOVE FIELD phone_number ON user;",
+      "description": "Add field phone_number to user"
+    }
+  ],
+  "upSql": "-- Migration: add_phone_number\n-- Version: 3.1.0\n-- Generated: 2025-07-06T09:19:12.065Z\n-- Operations: 1\n\n-- Add field phone_number to user\nDEFINE FIELD phone_number ON user TYPE string COMMENT 'User phone number for notifications';\n",
+  "downSql": "-- Rollback Migration: add_phone_number\n-- Version: 3.1.0\n-- Generated: 2025-07-06T09:19:12.065Z\n\n-- Rollback: Add field phone_number to user\nREMOVE FIELD phone_number ON user;\n",
+  "description": "Migration from schema definitions v3.1.0"
+}

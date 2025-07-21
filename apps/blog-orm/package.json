@@ -1,0 +1,54 @@
+{
+  "name": "blog-orm",
+  "version": "1.0.0",
+  "description": "Standalone blog management app demonstrating surql-schema as ORM",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "build": "bun build src/server.ts --outdir dist --target node",
+    "start": "bun src/server.ts",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "biome lint src/",
+    "format": "biome format --write src/",
+    "type-check": "tsc --noEmit",
+    
+    "db:status": "bun src/scripts/schema-workflow.ts status",
+    "db:apply": "bun src/scripts/schema-workflow.ts apply", 
+    "db:rollback": "bun src/scripts/schema-workflow.ts rollback",
+    "db:export": "bun src/scripts/schema-workflow.ts export",
+    "db:dev": "bun src/scripts/schema-workflow.ts dev",
+    "db:deploy": "bun src/scripts/schema-workflow.ts deploy",
+    
+    "schema:generate": "npx @necmttn/surql-schema generate --config surql-gen.config.ts",
+    "schema:export": "npx @necmttn/surql-schema export-schema --output ./src/db/current-schema.surql",
+    "schema:diff": "npx @necmttn/surql-schema diff",
+    "schema:exec": "npx @necmttn/surql-schema exec",
+    
+    "migrate:generate": "bun src/scripts/auto-migrate.ts generate",
+    "migrate:diff": "bun src/scripts/auto-migrate.ts diff",
+    "migrate:status": "bun src/scripts/auto-migrate.ts status",
+    "migrate:workflow": "bun src/scripts/auto-migrate.ts workflow",
+    
+    "examples:add-table": "bun src/scripts/auto-migrate.ts example-add-table",
+    "examples:modify-field": "bun src/scripts/auto-migrate.ts example-modify",
+    "examples:workflow": "bun src/scripts/auto-migrate.ts workflow"
+  },
+  "dependencies": {
+    "@necmttn/surql-schema": "workspace:*",
+    "@trpc/server": "^10.45.2",
+    "@trpc/client": "^10.45.2",
+    "effect": "^3.10.0",
+    "surrealdb": "^1.0.0",
+    "hono": "^4.6.7",
+    "@hono/node-server": "^1.13.5",
+    "@hono/trpc-server": "^0.3.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "latest",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.8"
+  }
+}

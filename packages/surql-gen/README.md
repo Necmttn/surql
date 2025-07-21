@@ -19,17 +19,18 @@ A revolutionary TypeScript schema generator that converts SurrealDB schemas into
 ```bash
 # Clone and setup
 git clone <repo>
-cd experimental
+cd surql-gen/packages/surql-gen
 bun install
 
-# Start Docker SurrealDB for testing
+# Start Docker SurrealDB for testing (from root)
+cd ../../
 docker-compose up -d
 ```
 
 ### Basic Usage
 
 ```typescript
-import { SurrealField, SurrealTable, SurrealSchema } from "./src/lib/schema";
+import { SurrealField, SurrealTable, SurrealSchema } from "@necmttn/surql-schema";
 
 // Create a field with validation
 const emailField = SurrealField.string("email")
@@ -37,18 +38,14 @@ const emailField = SurrealField.string("email")
   .pattern("^[^@]+@[^@]+$")
   .description("User email address");
 
-// Create a table with AI metadata
-const userTable = SurrealTable.create("user")
-  .withDescription("User accounts table")
-  .addField(SurrealField.id("user"))
-  .addField(emailField)
-  .addField(SurrealField.string("username").unique())
-  .addField(SurrealField.boolean("is_active").default("true"))
-  .addField(SurrealField.datetime("created_at").default("time::now()"))
-  .aiPrimaryKey("email")
-  .aiTemporalField("created_at")
-  .aiContentFields(["username", "email"])
-  .aiCommonQueries(["findByEmail", "getActiveUsers"]);
+// Create a table with constraints and metadata
+const userTable = SurrealTable.create("user", [
+  SurrealField.id("user"),
+  emailField,
+  SurrealField.string("username").unique(),
+  SurrealField.boolean("is_active").optional(),
+  SurrealField.datetime("created_at")
+]).withDescription("User accounts table");
 
 // Create a complete schema
 const schema = SurrealSchema.create("my-app", "1.0.0")
@@ -58,11 +55,49 @@ const schema = SurrealSchema.create("my-app", "1.0.0")
 // Generate SurrealQL
 console.log(schema.toSurrealQL());
 
-// Generate TypeScript interfaces
-console.log(schema.toTypeScript());
+// Generate automatic migrations from schema changes
+// (see CLI section below)
+```
 
-// Generate Effect Schema classes
-console.log(schema.toEffectSchemaClasses());
+## 🛠️ CLI Commands
+
+The surql-schema CLI provides powerful migration generation directly from your TypeScript schema definitions:
+
+### Migration Generation
+
+```bash
+# Generate a migration from schema changes
+bun src/cli/schema-cli.ts migrate generate <migration_name>
+
+# Examples:
+bun src/cli/schema-cli.ts migrate generate add_user_phone
+bun src/cli/schema-cli.ts migrate generate update_user_constraints
+bun src/cli/schema-cli.ts migrate generate add_analytics_tables
+```
+
+### Migration Status
+
+```bash
+# Check migration history and current schema version
+bun src/cli/schema-cli.ts migrate status
+```
+
+### Package Scripts
+
+For convenience, you can also use the predefined scripts:
+
+```bash
+# Run any CLI command
+bun run cli migrate generate add_user_phone
+
+# Quick migration generation
+bun run migrate generate add_user_phone
+
+# Development mode
+bun run dev
+
+# Testing
+bun run test
 ```
 
 ## 📖 Core Concepts
@@ -606,6 +641,150 @@ if (errors.length > 0) {
 - **Performance Optimization**: Query optimization based on AI metadata
 - **Multi-Database Support**: Extend to other databases beyond SurrealDB
 
+## 🔄 Automatic Migration Generation
+
+**NEW**: Zero-downtime, automatic migration generation from TypeScript schema changes!
+
+### 🚀 Revolutionary Migration Workflow
+
+No more manual migration writing or unnecessary index rebuilds:
+
+```bash
+# Generate migration from schema changes
+bun src/cli/schema-cli.ts migrate generate add_user_phone
+
+# Show migration status and history
+bun src/cli/schema-cli.ts migrate status
+
+# Apply pending migrations (coming soon)
+bun src/cli/schema-cli.ts migrate apply
+```
+
+### ✅ Key Benefits
+
+- **🎯 Zero Index Rebuilds** - Only creates/modifies what actually changed
+- **🔄 Automatic Rollback Generation** - Every migration is reversible
+- **📊 Type-Safe Schema Definitions** - Single source of truth in TypeScript
+- **⚡ Incremental Changes Only** - Compares previous vs current schema
+- **🛡️ Production-Ready Safety** - Transaction wrapping and dependency management
+
+### 📋 Migration Example
+
+```bash
+$ bun src/cli/schema-cli.ts migrate generate add_user_analytics
+
+🔄 Generating migration: add_user_analytics
+📊 Comparing schema v1.0.0 → v1.1.0
+✅ Migration generated: migrations/1234567890_add_user_analytics.surql
+📋 Operations: 3
+   • Add field phone_number to user
+   • Add field last_login to user  
+   • Add index idx_user_phone on user
+```
+
+Generated migration (automatic):
+```sql
+-- Migration: add_user_analytics
+-- Version: 1.1.0
+-- Created: 2025-01-06T12:00:00.000Z
+
+-- UP
+BEGIN TRANSACTION;
+
+-- Add field phone_number to user
+DEFINE FIELD phone_number ON user TYPE string COMMENT 'User phone number';
+
+-- Add field last_login to user
+DEFINE FIELD last_login ON user TYPE datetime COMMENT 'Last login timestamp';
+
+-- Add index idx_user_phone on user
+DEFINE INDEX idx_user_phone ON user FIELDS phone_number;
+
+COMMIT TRANSACTION;
+
+-- DOWN
+BEGIN TRANSACTION;
+
+-- Rollback: Add index idx_user_phone on user
+REMOVE INDEX idx_user_phone ON user;
+
+-- Rollback: Add field last_login to user
+REMOVE FIELD last_login ON user;
+
+-- Rollback: Add field phone_number to user
+REMOVE FIELD phone_number ON user;
+
+COMMIT TRANSACTION;
+```
+
+### 🎯 Migration Workflow
+
+1. **Define Schema in TypeScript**:
+   ```typescript
+   const userTable = SurrealTable.create("user", [
+     SurrealField.id("user"),
+     SurrealField.string("email").unique(),
+     SurrealField.string("phone_number").optional(), // ← New field
+   ]);
+   ```
+
+2. **Generate Migration Automatically**:
+   ```bash
+   bun src/cli/schema-cli.ts migrate generate add_phone_support
+   ```
+
+3. **Review Generated Migration**:
+   - Check `migrations/` directory for new `.surql` file
+   - Verify operations only include your changes
+   - Confirm existing indexes remain untouched
+
+4. **Apply to Database** (coming soon):
+   ```bash
+   bun src/cli/schema-cli.ts migrate apply
+   ```
+
+### 📊 Migration Status Tracking
+
+```bash
+$ bun src/cli/schema-cli.ts migrate status
+
+📊 Migration Status
+==================
+Current Version: 1.2.0
+Total Migrations: 5
+Last Updated: 2025-01-06T12:00:00.000Z
+Description: Added user analytics and notification features
+
+Migration History:
+→ v1.2.0 (2025-01-06T12:00:00.000Z)
+  v1.1.0 (2025-01-05T15:30:00.000Z)
+  v1.0.0 (2025-01-01T10:00:00.000Z)
+```
+
+### 🛡️ Production Safety Features
+
+- **Dependency Management**: Ensures migrations execute in correct order
+- **Breaking Change Detection**: Warns about potentially destructive operations
+- **Transaction Wrapping**: All operations are atomic
+- **Rollback Support**: Every migration includes automatic rollback SQL
+- **Schema History**: Complete audit trail of all changes
+
+### 🎯 No More:
+- ❌ Manual migration writing
+- ❌ Rebuilding existing indexes  
+- ❌ Schema drift between code and database
+- ❌ Inconsistent migration quality across team
+- ❌ Fear of breaking production during schema changes
+
+### ✅ Now You Get:
+- ✅ Automatic migration generation from code
+- ✅ Targeted changes that preserve existing indexes
+- ✅ Type-safe schema definitions as single source of truth
+- ✅ Consistent, reviewable migrations
+- ✅ Confidence in production deployments
+
+---
+
 ## 📚 Additional Resources
 
 - [Effect Schema Documentation](https://effect.website/docs/schema/introduction)
@@ -614,4 +793,4 @@ if (errors.length > 0) {
 
 ---
 
-**SurrealDB Schema Generator v2.0** - Transforming database schemas into intelligent, self-validating code that understands itself. 🚀
+**SurrealDB Schema Generator v2.0** - Transforming database schemas into intelligent, self-validating code that understands itself. Now with **automatic migration generation** for zero-downtime schema evolution! 🚀

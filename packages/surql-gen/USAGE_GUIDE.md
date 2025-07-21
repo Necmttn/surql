@@ -666,9 +666,124 @@ DEFINE FIELD created_at ON post TYPE datetime DEFAULT time::now();
 */
 ```
 
-## Migration Management
+## 🔄 Automatic Migration Generation
 
-### Version Comparison
+**NEW**: Zero-downtime, automatic migration generation from TypeScript schema changes!
+
+### 🚀 CLI-Based Migration Workflow
+
+The migration system now uses the CLI for automatic generation from schema definitions:
+
+```bash
+# Generate migration from schema changes
+surql-schema migrate generate add_user_analytics
+
+# Show migration status and history
+surql-schema migrate status
+
+# Apply pending migrations (coming soon)
+surql-schema migrate apply
+```
+
+### ✅ Key Benefits
+
+- **🎯 Zero Index Rebuilds** - Only creates/modifies what actually changed
+- **🔄 Automatic Rollback Generation** - Every migration is reversible  
+- **📊 Type-Safe Schema Definitions** - Single source of truth in TypeScript
+- **⚡ Incremental Changes Only** - Compares previous vs current schema
+- **🛡️ Production-Ready Safety** - Transaction wrapping and dependency management
+
+### 📋 Migration Generation Example
+
+```typescript
+// Define your schema in TypeScript
+const userTable = SurrealTable.create("user", [
+  SurrealField.id("user"),
+  SurrealField.string("email").unique(),
+  SurrealField.string("username").unique(),
+  // Add new field for migration demo
+  SurrealField.string("phone_number").optional()
+    .withDescription("User phone number for notifications"),
+]);
+
+const currentSchema = SurrealSchema.create("my-app", "1.1.0")
+  .addTable(userTable);
+```
+
+Run the CLI command:
+
+```bash
+$ surql-schema migrate generate add_user_phone
+
+🔄 Generating migration: add_user_phone
+📊 Comparing schema v1.0.0 → v1.1.0
+✅ Migration generated: migrations/1234567890_add_user_phone.sql
+📋 Operations: 1
+   • Add field phone_number to user
+```
+
+Generated migration (automatic):
+
+```sql
+-- Migration: add_user_phone
+-- Version: 1.1.0
+-- Created: 2025-01-06T12:00:00.000Z
+
+-- UP
+BEGIN TRANSACTION;
+
+-- Add field phone_number to user
+DEFINE FIELD phone_number ON user TYPE string COMMENT 'User phone number for notifications';
+
+COMMIT TRANSACTION;
+
+-- DOWN
+BEGIN TRANSACTION;
+
+-- Rollback: Add field phone_number to user
+REMOVE FIELD phone_number ON user;
+
+COMMIT TRANSACTION;
+```
+
+### 📊 Migration Status Tracking
+
+```bash
+$ surql-schema migrate status
+
+📊 Migration Status
+==================
+Current Version: 1.2.0
+Total Migrations: 5
+Last Updated: 2025-01-06T12:00:00.000Z
+Description: Added user analytics and notification features
+
+Migration History:
+→ v1.2.0 (2025-01-06T12:00:00.000Z)
+  v1.1.0 (2025-01-05T15:30:00.000Z)
+  v1.0.0 (2025-01-01T10:00:00.000Z)
+```
+
+### 🛡️ Production Safety Features
+
+- **Dependency Management**: Ensures migrations execute in correct order
+- **Breaking Change Detection**: Warns about potentially destructive operations
+- **Transaction Wrapping**: All operations are atomic
+- **Rollback Support**: Every migration includes automatic rollback SQL
+- **Schema History**: Complete audit trail of all changes
+
+### 🎯 Migration Workflow
+
+1. **Define Schema in TypeScript** - Update your schema definitions
+2. **Generate Migration** - `surql-schema migrate generate <name>`
+3. **Review Generated Files** - Check migrations directory
+4. **Apply to Database** - `surql-schema migrate apply` (coming soon)
+
+### 🔄 Traditional Migration Methods (Still Available)
+
+For advanced use cases, you can still use the programmatic migration API:
+
+#### Version Comparison
 
 ```typescript
 // Version 1.0 schema
@@ -693,52 +808,28 @@ const v2Schema = SurrealSchema.create("app", "2.0.0")
       .addField(SurrealField.record("user", "user"))
   );
 
-// Generate migration
-const migration = SurrealSchema.generateMigration(v1Schema, v2Schema);
-console.log("Migration operations:", migration);
-
-/*
-Output:
-[
-  "ALTER FIELD email ON user ADD UNIQUE",
-  "DEFINE FIELD phone ON user TYPE option<string> COMMENT 'Optional phone number';",
-  "DEFINE TABLE profile SCHEMAFULL;",
-  "DEFINE FIELD id ON profile TYPE record<profile>;",
-  "DEFINE FIELD user ON profile TYPE record<user>;"
-]
-*/
-
-// Compare schemas
-const comparison = SurrealSchema.compare(v1Schema, v2Schema);
-console.log("Schema comparison:", comparison);
-
-/*
-Output:
-{
-  added: ["table:profile"],
-  removed: [],
-  modified: ["table:user"], 
-  unchanged: []
-}
-*/
+// Generate migration using comparison engine
+const diff = SchemaComparator.compare(v1Schema, v2Schema);
+const migration = MigrationGenerator.generateMigration(diff, "add_phone_and_profile");
 ```
 
-### Migration Application
+#### Advanced Migration Application
 
 ```typescript
 async function applyMigration(
   db: Surreal, 
-  migration: string[], 
+  migration: Migration, 
   dryRun: boolean = true
 ) {
   console.log(`Applying migration (${dryRun ? 'DRY RUN' : 'LIVE'}):`);
   
-  for (const operation of migration) {
-    console.log(`  ${operation}`);
+  for (const statement of migration.statements) {
+    console.log(`  ${statement.description}`);
+    console.log(`    ${statement.upSql}`);
     
     if (!dryRun) {
       try {
-        await db.query(operation);
+        await db.query(statement.upSql);
         console.log(`    ✅ Success`);
       } catch (error) {
         console.error(`    ❌ Failed: ${error}`);
@@ -748,29 +839,27 @@ async function applyMigration(
   }
 }
 
-// Usage
+// Usage with sophisticated migration object
 await applyMigration(db, migration, true);  // Dry run first
 await applyMigration(db, migration, false); // Apply for real
 ```
 
-### Rollback Generation
+#### Rollback Support
 
 ```typescript
-// Generate rollback for migration
-function generateRollback(fromSchema: SurrealSchema, toSchema: SurrealSchema): string[] {
-  // Rollback is just the reverse migration
-  return SurrealSchema.generateMigration(toSchema, fromSchema);
-}
+// Automatic rollback generation
+const rollbackMigration = MigrationGenerator.generateMigration(
+  SchemaComparator.compare(v2Schema, v1Schema), 
+  "rollback_phone_and_profile"
+);
 
-const rollback = generateRollback(v1Schema, v2Schema);
-console.log("Rollback operations:", rollback);
-
+console.log("Rollback operations:", rollbackMigration.statements.map(s => s.description));
 /*
 Output:
 [
-  "DROP TABLE profile;",
-  "REMOVE FIELD phone ON user;", 
-  "ALTER FIELD email ON user REMOVE UNIQUE"
+  "Drop table profile",
+  "Remove field phone from user", 
+  "Drop index idx_unique_email from user"
 ]
 */
 ```

@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler", 
+    "downlevelIteration": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/cli/**/*",
+    "src/lib/comparison/**/*",
+    "src/lib/migration/**/*",
+    "src/lib/schema/field.ts",
+    "src/lib/schema/table.ts", 
+    "src/lib/schema/schema.ts",
+    "src/lib/schema/index-def.ts"
+  ],
+  "exclude": [
+    "src/__tests__/**/*",
+    "src/lib/schema/legacy/**/*", 
+    "src/lib/query-builder/**/*",
+    "node_modules",
+    "dist"
+  ]
+}

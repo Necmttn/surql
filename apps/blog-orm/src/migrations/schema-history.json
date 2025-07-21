@@ -1,0 +1,1261 @@
+[
+  {
+    "version": "3.0.0",
+    "tables": [
+      {
+        "name": "user",
+        "description": "User accounts for the blog system",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "email",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "User email address",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "Unique username",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "first_name",
+            "type": "string",
+            "description": "User first name",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "last_name",
+            "type": "string",
+            "description": "User last name",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "bio",
+            "type": "string",
+            "description": "User biography",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "avatar_url",
+            "type": "string",
+            "description": "User avatar URL",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "role",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "author",
+                "editor",
+                "admin"
+              ]
+            },
+            "defaultValue": "'author'",
+            "description": "User role",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "is_active",
+            "type": "bool",
+            "defaultValue": "true",
+            "description": "Whether user is active",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Account creation timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Account last update timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "social_links",
+            "type": "object",
+            "defaultValue": "{}",
+            "description": "User social media links",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "preferences",
+            "type": "object",
+            "defaultValue": "{}",
+            "description": "User preferences and settings",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "post",
+        "description": "Blog posts",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "description": "Post title",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "slug",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "URL-friendly post identifier",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "description": "Post content in markdown",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "excerpt",
+            "type": "string",
+            "description": "Post excerpt for previews",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "author",
+            "type": "record",
+            "description": "Post author reference",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "draft",
+                "published",
+                "archived"
+              ]
+            },
+            "defaultValue": "'draft'",
+            "description": "Post publication status",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "featured",
+            "type": "bool",
+            "defaultValue": "false",
+            "description": "Whether post is featured",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "view_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Number of post views",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "published_at",
+            "type": "datetime",
+            "description": "Publication timestamp",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Post creation timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Post last update timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "engagement_score",
+            "type": "number",
+            "defaultValue": "0.0",
+            "description": "Calculated engagement score",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "last_viewed",
+            "type": "datetime",
+            "description": "Last view timestamp",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "category",
+            "type": "string",
+            "defaultValue": "'general'",
+            "description": "Post category",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "reading_time",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Estimated reading time in minutes",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "word_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Total word count",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "tag",
+        "description": "Content tags for categorization",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "tag"
+            }
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "Tag display name",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "slug",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "URL-friendly tag identifier",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "description": "Tag description",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "defaultValue": "'#6366f1'",
+            "description": "Tag display color (hex)",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "post_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Number of posts with this tag",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Tag creation timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "comment",
+        "description": "User comments on posts",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "comment"
+            }
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "description": "Comment content",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "author",
+            "type": "record",
+            "description": "Comment author",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "post",
+            "type": "record",
+            "description": "Post being commented on",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "parent",
+            "type": "record",
+            "description": "Parent comment for threading",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "comment"
+            }
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "pending",
+                "approved",
+                "spam",
+                "trash"
+              ]
+            },
+            "defaultValue": "'pending'",
+            "description": "Moderation status",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Comment creation timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Comment last update timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "post_tag",
+        "description": "Many-to-many relationship between posts and tags",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "post_tag"
+            }
+          },
+          {
+            "name": "post",
+            "type": "record",
+            "description": "Post reference",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "tag",
+            "type": "record",
+            "description": "Tag reference",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "tag"
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Relationship creation timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "analytics",
+        "description": "Analytics tracking for posts and user interactions",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "analytics"
+            }
+          },
+          {
+            "name": "post",
+            "type": "record",
+            "description": "Post being tracked",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "event_type",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "view",
+                "like",
+                "share",
+                "comment"
+              ]
+            },
+            "description": "Type of analytics event",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "user_id",
+            "type": "record",
+            "description": "User who triggered the event",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "ip_address",
+            "type": "string",
+            "description": "IP address of visitor",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "user_agent",
+            "type": "string",
+            "description": "Browser user agent",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "referrer",
+            "type": "string",
+            "description": "Referrer URL",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "metadata",
+            "type": "object",
+            "defaultValue": "{}",
+            "description": "Additional event metadata",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Event timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "search_log",
+        "description": "Search query tracking for analytics",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "search_log"
+            }
+          },
+          {
+            "name": "query",
+            "type": "string",
+            "description": "Search query text",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "user_id",
+            "type": "record",
+            "description": "User who performed search",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "results_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Number of results returned",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "clicked_result",
+            "type": "record",
+            "description": "Which result was clicked",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "ip_address",
+            "type": "string",
+            "description": "IP address of searcher",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Search timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      }
+    ],
+    "timestamp": "2025-07-06T09:16:35.445Z",
+    "description": "Blog system with analytics and search features"
+  },
+  {
+    "version": "3.1.0",
+    "tables": [
+      {
+        "name": "user",
+        "description": "User accounts for the blog system",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "email",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "User email address",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "username",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "Unique username",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "first_name",
+            "type": "string",
+            "description": "User first name",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "last_name",
+            "type": "string",
+            "description": "User last name",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "bio",
+            "type": "string",
+            "description": "User biography",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "avatar_url",
+            "type": "string",
+            "description": "User avatar URL",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "role",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "author",
+                "editor",
+                "admin"
+              ]
+            },
+            "defaultValue": "'author'",
+            "description": "User role",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "is_active",
+            "type": "bool",
+            "defaultValue": "true",
+            "description": "Whether user is active",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Account creation timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Account last update timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "social_links",
+            "type": "object",
+            "defaultValue": "{}",
+            "description": "User social media links",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "preferences",
+            "type": "object",
+            "defaultValue": "{}",
+            "description": "User preferences and settings",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "phone_number",
+            "type": "string",
+            "description": "User phone number for notifications",
+            "isOptional": true,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "post",
+        "description": "Blog posts",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "title",
+            "type": "string",
+            "description": "Post title",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "slug",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "URL-friendly post identifier",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "description": "Post content in markdown",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "excerpt",
+            "type": "string",
+            "description": "Post excerpt for previews",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "author",
+            "type": "record",
+            "description": "Post author reference",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "draft",
+                "published",
+                "archived"
+              ]
+            },
+            "defaultValue": "'draft'",
+            "description": "Post publication status",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "featured",
+            "type": "bool",
+            "defaultValue": "false",
+            "description": "Whether post is featured",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "view_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Number of post views",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "published_at",
+            "type": "datetime",
+            "description": "Publication timestamp",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Post creation timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Post last update timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "engagement_score",
+            "type": "number",
+            "defaultValue": "0.0",
+            "description": "Calculated engagement score",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "last_viewed",
+            "type": "datetime",
+            "description": "Last view timestamp",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "category",
+            "type": "string",
+            "defaultValue": "'general'",
+            "description": "Post category",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "reading_time",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Estimated reading time in minutes",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "word_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Total word count",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "tag",
+        "description": "Content tags for categorization",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "tag"
+            }
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "Tag display name",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "slug",
+            "type": "string",
+            "constraints": {
+              "unique": true
+            },
+            "description": "URL-friendly tag identifier",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "description": "Tag description",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "color",
+            "type": "string",
+            "defaultValue": "'#6366f1'",
+            "description": "Tag display color (hex)",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "post_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Number of posts with this tag",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Tag creation timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "comment",
+        "description": "User comments on posts",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "comment"
+            }
+          },
+          {
+            "name": "content",
+            "type": "string",
+            "description": "Comment content",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "author",
+            "type": "record",
+            "description": "Comment author",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "post",
+            "type": "record",
+            "description": "Post being commented on",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "parent",
+            "type": "record",
+            "description": "Parent comment for threading",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "comment"
+            }
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "pending",
+                "approved",
+                "spam",
+                "trash"
+              ]
+            },
+            "defaultValue": "'pending'",
+            "description": "Moderation status",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Comment creation timestamp",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Comment last update timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "post_tag",
+        "description": "Many-to-many relationship between posts and tags",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "post_tag"
+            }
+          },
+          {
+            "name": "post",
+            "type": "record",
+            "description": "Post reference",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "tag",
+            "type": "record",
+            "description": "Tag reference",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "tag"
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Relationship creation timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "analytics",
+        "description": "Analytics tracking for posts and user interactions",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "analytics"
+            }
+          },
+          {
+            "name": "post",
+            "type": "record",
+            "description": "Post being tracked",
+            "isOptional": false,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "event_type",
+            "type": "string",
+            "constraints": {
+              "enum": [
+                "view",
+                "like",
+                "share",
+                "comment"
+              ]
+            },
+            "description": "Type of analytics event",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "user_id",
+            "type": "record",
+            "description": "User who triggered the event",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "ip_address",
+            "type": "string",
+            "description": "IP address of visitor",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "user_agent",
+            "type": "string",
+            "description": "Browser user agent",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "referrer",
+            "type": "string",
+            "description": "Referrer URL",
+            "isOptional": true,
+            "isId": false
+          },
+          {
+            "name": "metadata",
+            "type": "object",
+            "defaultValue": "{}",
+            "description": "Additional event metadata",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Event timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      },
+      {
+        "name": "search_log",
+        "description": "Search query tracking for analytics",
+        "fields": [
+          {
+            "name": "id",
+            "type": "record",
+            "isOptional": false,
+            "isId": true,
+            "references": {
+              "table": "search_log"
+            }
+          },
+          {
+            "name": "query",
+            "type": "string",
+            "description": "Search query text",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "user_id",
+            "type": "record",
+            "description": "User who performed search",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "user"
+            }
+          },
+          {
+            "name": "results_count",
+            "type": "int",
+            "defaultValue": "0",
+            "description": "Number of results returned",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "clicked_result",
+            "type": "record",
+            "description": "Which result was clicked",
+            "isOptional": true,
+            "isId": false,
+            "references": {
+              "table": "post"
+            }
+          },
+          {
+            "name": "ip_address",
+            "type": "string",
+            "description": "IP address of searcher",
+            "isOptional": false,
+            "isId": false
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "defaultValue": "time::now()",
+            "description": "Search timestamp",
+            "isOptional": false,
+            "isId": false
+          }
+        ],
+        "schemafull": true
+      }
+    ],
+    "timestamp": "2025-07-06T09:19:12.058Z",
+    "description": "Blog system with analytics and search features"
+  }
+]
